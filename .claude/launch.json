@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cauldron",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "dashboard",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8766",
+        "-d",
+        ".dashboard"
+      ],
+      "port": 8766
+    }
+  ]
+}

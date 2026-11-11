@@ -1,0 +1,16 @@
+node_modules
+.next
+data/*.db*
+.env.local
+.claude/settings.local.json
+.dashboard/
+.impeccable/
+tsconfig.tsbuildinfo
+.env*
+CLAUDE.local.md
+.DS_Store
+
+# Personal planning notes and scratch scripts (kept on disk, not published)
+docs/superpowers/
+docs/morning-notes.md
+scripts/peek*.mjs
