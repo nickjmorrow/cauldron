@@ -2,6 +2,7 @@
   "name": "cauldron",
   "version": "1.0.0",
   "description": "Local-first meal planner: one base day, six workout/rest x cut/maintain/bulk versions, nutrient targets and a solver that suggests fixes.",
+  "license": "MIT",
   "private": true,
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3100",
