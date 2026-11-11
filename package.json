@@ -1,7 +1,8 @@
 {
   "name": "cauldron",
   "version": "1.0.0",
-  "description": "",
+  "description": "Local-first meal planner: one base day, six workout/rest x cut/maintain/bulk versions, nutrient targets and a solver that suggests fixes.",
+  "private": true,
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3100",
     "build": "next build",
@@ -9,9 +10,6 @@
     "test": "node --test lib/*.test.ts",
     "import": "node scripts/import-xlsx.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "module",
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.3.0",
@@ -25,6 +23,5 @@
     "@types/react": "^19.3.0",
     "exceljs": "^4.4.0",
     "typescript": "^7.0.2"
-  },
-  "private": true
+  }
 }
