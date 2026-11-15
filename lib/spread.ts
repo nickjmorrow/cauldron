@@ -92,3 +92,17 @@ export function daySpread(slots: Slot[], keys: NutrientKey[], max = MAX_COMBOS):
   }
   return { combos, sampled, parts, nutrients };
 }
+
+// The single variation that moves a nutrient most: how far a typical day with it sits from the average of its meal's other variations.
+export function standout(s: NutrientSpread): { name: string; slotName: string; delta: number } | undefined {
+  let best: { name: string; slotName: string; delta: number } | undefined;
+  for (const { part, means } of s.byChoice) {
+    for (const m of means) {
+      const others = means.filter((x) => x !== m);
+      if (!others.length) continue;
+      const delta = m.mean - others.reduce((sum, x) => sum + x.mean, 0) / others.length;
+      if (!best || Math.abs(delta) > Math.abs(best.delta)) best = { name: m.name, slotName: part.slotName, delta };
+    }
+  }
+  return best;
+}

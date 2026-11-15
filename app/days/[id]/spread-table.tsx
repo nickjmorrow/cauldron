@@ -1,5 +1,5 @@
 import { NUTRIENTS, NUTRIENT_GROUPS, type NutrientKey } from "../../../lib/nutrients.ts";
-import { daySpread, type NutrientSpread } from "../../../lib/spread.ts";
+import { daySpread, standout, type NutrientSpread } from "../../../lib/spread.ts";
 import { judge, type Target } from "../../../lib/compute.ts";
 import type { Slot } from "../../../lib/queries.ts";
 
@@ -18,13 +18,15 @@ function Row({ label, unit, s, target }: { label: string; unit: string; s: Nutri
   const varies = s.max > s.min;
   const aim = target?.daily ?? null;
   const verdict = aim ? judge(s.mean, aim, target!.type) : null;
+  const big = swing > BIG_SWING;
+  const culprit = big ? standout(s) : undefined;
   const summary = (
     <>
       <span className="sp-name">{label} <span className="muted">{unit}</span></span>
-      <span className="sp-num"><b>{fmt(s.mean)}</b>{varies && <span className={`sp-pm${swing > BIG_SWING ? " big" : ""}`}> ± {fmt(half)}</span>}</span>
+      <span className="sp-num"><b>{fmt(s.mean)}</b>{varies && <span className={`sp-pm${big ? " big" : ""}`}> ± {fmt(half)}</span>}</span>
       {target !== undefined && <span className="sp-num muted">{aim === null ? "–" : `${target.type === "at_least" ? "≥ " : target.type === "no_more_than" ? "≤ " : ""}${fmt(aim)}`}</span>}
       {target !== undefined && <span className={`sp-num ${verdict?.verdict ?? ""}`}>{verdict ? `${Math.round(verdict.pct * 100)}%` : ""}</span>}
-      <span className="sp-why muted">{varies && s.driver ? `varies with ${s.driver.part.slotName.toLowerCase()}` : ""}</span>
+      <span className="sp-why">{culprit ? <><b>{culprit.name}</b> <span className="muted">{signed(culprit.delta)} {unit} vs the other {culprit.slotName.toLowerCase()} choices</span></> : ""}</span>
     </>
   );
   if (!varies) return <div className="sp-row"><div className={`sp-line${target !== undefined ? " with-target" : ""}`}>{summary}</div></div>;
@@ -56,7 +58,7 @@ export function SpreadTable({ slots, targets }: { slots: Slot[]; targets?: Recor
       <h2 style={{ marginTop: 0 }}>Nutrients</h2>
       <p className="muted sp-lede">
         {parts.length === 0 ? "Your day has no variations, so these are the same every day."
-          : "A typical day, with every variation eaten equally often. ± is how far a day can swing either way; it's highlighted when the variations differ a lot. Open a row to see each variation's effect."}
+          : "A typical day, with every variation eaten equally often. ± is how far a day can swing either way. When it's highlighted, the variation causing it is named. Open a row to see each variation's effect."}
       </p>
       {NUTRIENT_GROUPS.map((g) => {
         const rows = g.items.filter((n) => nutrients[n.key].max > 0 || targets?.[n.key]?.daily);

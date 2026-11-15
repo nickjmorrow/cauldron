@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { daySpread, BINS } from "./spread.ts";
+import { daySpread, standout, BINS } from "./spread.ts";
 import type { Slot } from "./queries.ts";
 
 // Hand-built slots: no database involved. Each option is a meal with only calories.
@@ -69,4 +69,14 @@ test("names a part by the start of each of its meals", () => {
   const { parts } = daySpread(day, ["calories"]);
   assert.equal(parts[0].label, "Chicken / Beef");
   assert.equal(parts[0].slotName, "Dinner");
+});
+
+test("the standout is the one variation furthest from its meal's other variations", () => {
+  const meals: Slot[] = [
+    slot(3, "Breakfast", [[opt("Oats", 400), opt("Eggs", 420), opt("Pancakes", 900)]]),
+    slot(4, "Dinner", [[opt("Chicken", 500), opt("Beef", 560)]]),
+  ];
+  const s = daySpread(meals, ["calories"]).nutrients.calories;
+  assert.deepEqual(standout(s), { name: "Pancakes", slotName: "Breakfast", delta: 490 }); // 900 against the average of 400 and 420
+  assert.equal(standout(daySpread([day[0]], ["calories"]).nutrients.calories), undefined, "no variations, nothing stands out");
 });

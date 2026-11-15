@@ -406,5 +406,6 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 .sp-choice { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 1px 0; }
 @media (max-width: 560px) {
   .sp-line, .sp-line.with-target { grid-template-columns: 1fr auto auto auto; gap: 4px 10px; }
-  .sp-why { display: none; }
+  .sp-why { grid-column: 1 / -1; }
+  .sp-why:empty { display: none; }
 }
