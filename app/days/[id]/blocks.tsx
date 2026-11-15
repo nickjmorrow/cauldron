@@ -7,9 +7,11 @@ export const MINI: Scale = { px: 0.085, min: 18 };
 
 // One meal as a block as tall as its calories. The dashed ghost is the base portion: it shows what a resize
 // took away, sits inside a block that grew, and is all that is left of a dropped meal.
-export function BlockCell({ block, scale, compact, tag }: { block: Block; scale: Scale; compact?: boolean; tag?: string }) {
+// `addedTag` names where an added food belongs ("added for Bulk"); without it an added food reads like any other meal.
+export function BlockCell({ block, scale, compact, tag, addedTag }: { block: Block; scale: Scale; compact?: boolean; tag?: string; addedTag?: string }) {
   const { option, status, baseKcal, kcal, factor } = block;
-  const ghostHeight = baseKcal ? blockHeight(baseKcal, scale.px, scale.min) : 0;
+  // The outline only says something when the portion changed or the meal was dropped.
+  const ghostHeight = baseKcal && (status === "dropped" || kcal !== baseKcal) ? blockHeight(baseKcal, scale.px, scale.min) : 0;
   const height = status === "dropped" ? 0 : blockHeight(kcal, scale.px, scale.min);
   const name = option.meal.name;
   return (
@@ -20,9 +22,9 @@ export function BlockCell({ block, scale, compact, tag }: { block: Block; scale:
         </div>
       )}
       {height > 0 && (
-        <div className={`gh-blk${status === "added" ? " add" : ""}${block.odd ? " odd" : ""}`} style={{ height }}>
+        <div className={`gh-blk${block.odd ? " odd" : ""}`} style={{ height }}>
           <div className="gh-t">
-            <b>{status === "added" && "+ "}{name}{block.odd && !compact && <em className="odd-tag">much {block.odd} than the others</em>}</b>
+            <b>{name}{status === "added" && addedTag && !compact && <em className="added-tag">{addedTag}</em>}{block.odd && !compact && <em className="odd-tag">much {block.odd} than the others</em>}</b>
             <span>{kcal} kcal{!compact && ` · ${Math.round(option.meal.totals.protein ?? 0)} g protein`}{tag ? ` ${tag}` : ""}{factor !== 1 && !compact ? ` · ×${factor}` : ""}</span>
           </div>
         </div>

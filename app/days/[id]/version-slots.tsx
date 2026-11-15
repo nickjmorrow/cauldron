@@ -1,6 +1,6 @@
 import { Select, type Option } from "../../select.tsx";
 import { STUB_SERVING, type Slot, type Version } from "../../../lib/queries.ts";
-import type { VersionKey } from "../../../lib/versions.ts";
+import { versionLabel, type VersionKey } from "../../../lib/versions.ts";
 import { ghostSlots, type Block } from "../../../lib/ghost.ts";
 import { addFoodToVersion, removeAddedFood, removeFromVersion, resetVersionToBase, restoreToVersion, scaleInVersion, setAddedFoodQty } from "../../actions.ts";
 import { BlockCell, EDITOR } from "./blocks.tsx";
@@ -97,9 +97,10 @@ function MealContents({ block }: { block: Block }) {
 // Clicking a meal opens a dialog: what is in it at this portion, then the controls.
 function Editable({ block, slotName, want, children }: { block: Block; slotName: string; want: VersionKey; children: React.ReactNode }) {
   const added = block.status === "added";
+  const addedFor = `added for ${versionLabel(want)}`;
   return (
-    <MealDialog label={`${block.option.meal.name}: see ingredients and portion`} trigger={<BlockCell block={block} scale={EDITOR} />}
-      title={block.option.meal.name} subtitle={`${slotName} · ${added ? "added in this version" : portionText(block.factor)} · ${block.kcal} kcal`}>
+    <MealDialog label={`${block.option.meal.name}: see ingredients and portion`} trigger={<BlockCell block={block} scale={EDITOR} addedTag={addedFor} />}
+      title={block.option.meal.name} subtitle={`${slotName} · ${added ? addedFor : portionText(block.factor)} · ${block.kcal} kcal`}>
       <MealContents block={block} />
       <div className="meal-controls">{children}</div>
     </MealDialog>
@@ -141,7 +142,12 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
                 </div>
               );
             })}
-            {slot.added.map((b) => <Editable key={b.option.optionId} block={b} slotName={slot.name} want={want}><AddedControls block={b} want={want} /></Editable>)}
+            {slot.added.map((b) => (
+              <div key={b.option.optionId} className="part">
+                <div className="with" aria-hidden="true">with</div>
+                <Editable block={b} slotName={slot.name} want={want}><AddedControls block={b} want={want} /></Editable>
+              </div>
+            ))}
             <details className="gh-add">
               <summary>+ add a food</summary>
               <form action={addFoodToVersion} className="pick">

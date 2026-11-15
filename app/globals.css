@@ -320,10 +320,10 @@ input.qty { width: 72px; min-height: 30px; padding: 3px 8px; }
 /* Day blocks: height is calories, the dashed ghost is the base day's portion */
 .gh-cell { position: relative; }
 .gh-blk { position: absolute; inset: 0 0 auto 0; display: flex; overflow: hidden; background: var(--surface); border: 1px solid var(--fg); border-radius: 8px; }
-.gh-blk.add { background: transparent; border-style: dashed; }
 .gh-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 5px 10px; font-size: 13px; line-height: 1.3; }
 .gh-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gh-blk.odd { border-color: var(--sun); }
+.added-tag { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); margin-left: 8px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; }
 .odd-tag { font-style: normal; font-weight: 500; font-size: 11px; color: var(--sun); margin-left: 8px; }
 .gh-vars { display: grid; gap: 6px; }
 .gh-t span { color: var(--muted); white-space: nowrap; }
