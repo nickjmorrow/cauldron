@@ -224,6 +224,19 @@ export function listPlacements(): Placement[] {
   return getDb().prepare("SELECT ingredient_id, location_id, status FROM ingredient_locations").all() as unknown as Placement[];
 }
 
+// What the Day tab actually uses: meals in the base day or added to an approved version, and every ingredient in them
+// (fixed-total meal stand-ins included), so the other pages can hide the rest of the collection.
+export function inUse(day: Day): { meals: Set<number>; ingredients: Set<number> } {
+  const meals = new Set<number>(), ingredients = new Set<number>();
+  for (const slot of [...day.slots, ...day.versions.filter((v) => v.status === "approved").flatMap((v) => v.slots)]) {
+    for (const part of slot.parts) for (const option of part.options) {
+      if (option.meal.id > 0) meals.add(option.meal.id);
+      for (const item of option.meal.items) ingredients.add(item.ingredient.id);
+    }
+  }
+  return { meals, ingredients };
+}
+
 // Every real ingredient in the base day or added to an approved version, variations included.
 export function dayIngredients(day: Day): Ingredient[] {
   const byId = new Map<number, Ingredient>();

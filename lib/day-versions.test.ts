@@ -6,7 +6,7 @@ import { rmSync } from "node:fs";
 const FILE = "data/test-day-versions.db";
 process.env.CAULDRON_DB = FILE;
 const { getDb } = await import("./db.ts");
-const { getDay, createVersion, versionExists, dayIngredients, pendingCount, rejectVersion, totalsForChoice } = await import("./queries.ts");
+const { getDay, createVersion, versionExists, dayIngredients, inUse, pendingCount, rejectVersion, totalsForChoice } = await import("./queries.ts");
 
 test.after(() => { for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true }); });
 
@@ -137,4 +137,21 @@ test("rejecting never touches an approved version", () => {
   const v = createVersion(d, "cut");
   rejectVersion(v);
   assert.equal(versionExists(d, "cut"), true);
+});
+
+test("in use covers the base day's meals and what approved versions add, not the rest of the collection", () => {
+  const d = day("In use day");
+  const s = slot(d, "Lunch", 1);
+  const lunch = meal("Lunch bowl", 500, 30), spare = meal("Never eaten", 300, 10), extra = meal("Added meal", 200, 5);
+  option(s, lunch, 1, 0);
+  const approved = createVersion(d, "bulk");
+  adjust(approved, "add", { slot_id: s, ingredient_id: banana, qty: 1 });
+  adjust(approved, "add", { slot_id: s, meal_id: extra, qty: 1 });
+  const proposed = createVersion(d, "cut", { status: "proposed" });
+  adjust(proposed, "add", { slot_id: s, ingredient_id: egg, qty: 1 });
+  const used = inUse(getDay(d)!);
+  assert.deepEqual([...used.meals].sort(), [lunch, extra].sort());
+  assert.ok(!used.meals.has(spare));
+  assert.ok(used.ingredients.has(banana), "a food added by an approved version");
+  assert.ok(!used.ingredients.has(egg), "not one from a proposed version");
 });

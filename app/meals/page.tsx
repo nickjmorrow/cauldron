@@ -1,13 +1,20 @@
 import Link from "next/link";
-import { listMeals } from "../../lib/queries.ts";
+import { getOnlyDay, inUse, listMeals } from "../../lib/queries.ts";
+import { InUseToggle, isShowAll } from "../in-use-toggle.tsx";
 import { createMeal } from "../actions.ts";
 
-export default function Meals() {
-  const meals = listMeals();
+export default async function Meals({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
+  const showAll = isShowAll((await searchParams).show);
+  const used = inUse(getOnlyDay()).meals;
+  const everything = listMeals();
+  const meals = showAll ? everything : everything.filter((m) => used.has(m.id));
   return (
     <>
       <h1>Meals</h1>
       <p className="lede">A meal is a list of ingredients with quantities. Days pick from these.</p>
+      <div className="row" style={{ marginBottom: 14 }}>
+        <InUseToggle showAll={showAll} used={everything.filter((m) => used.has(m.id)).length} total={everything.length} href={(all) => (all ? "/meals?show=all" : "/meals")} />
+      </div>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Meal</th><th>Usually</th><th className="num">kcal</th><th className="num">Protein g</th><th className="num">Carbs g</th><th className="num">Fat g</th></tr></thead>
