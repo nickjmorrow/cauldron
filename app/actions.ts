@@ -10,7 +10,7 @@ import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAl
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
-import { addFood, planMeal, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
+import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
 type Kind = keyof typeof TABLES;
@@ -132,15 +132,6 @@ export async function acceptSuggestion(id: number) {
 }
 export async function dismissSuggestion(id: number) { dismissProposal(id); refresh(); }
 
-// "It's okay to exceed this", from the number's popover; the guardrails decide whether that is allowed.
-export async function allowExceed(f: FormData) {
-  const { goal } = parseVersionKey({ goal: str(f, "goal") });
-  const key = NUTRIENTS.find((n) => n.key === str(f, "nutrient"))?.key;
-  const error = key ? setTolerance(key, true, null) : "That nutrient isn't known.";
-  refresh();
-  redirect(backTo(goal, error ? `error=${encodeURIComponent(error)}` : "notice=allowed"));
-}
-
 // The Targets page form: a checkbox and an optional limit per nutrient.
 export async function saveTolerance(f: FormData) {
   const key = NUTRIENTS.find((n) => n.key === str(f, "nutrient"))?.key;
@@ -163,7 +154,6 @@ export async function rejectLikeAction(ingredientId: number, slotName: string) {
 export async function removeFromVersion(f: FormData) { change(f, (v) => removeMeal(v, int(f, "option"))); }
 export async function restoreToVersion(f: FormData) { change(f, (v) => restoreMeal(v, int(f, "option"))); }
 export async function scaleInVersion(f: FormData) { change(f, (v) => scaleMeal(v, int(f, "option"), Number(f.get("factor")))); }
-export async function planInVersion(f: FormData) { change(f, (v) => planMeal(v, int(f, "option"))); }
 export async function resetVersionToBase(f: FormData) { change(f, (v) => resetVersion(v)); }
 
 // The food field is "i:<ingredient id>" or "m:<meal id>".
@@ -216,13 +206,6 @@ export async function removeOption(id: number) {
   if (opt.is_planned) {
     db.prepare("UPDATE slot_options SET is_planned = 1 WHERE id = (SELECT MIN(id) FROM slot_options WHERE slot_id = ? AND part = ?)").run(opt.slot_id, opt.part);
   }
-  refresh();
-}
-export async function setPlanned(optionId: number) {
-  const db = getDb();
-  const opt = db.prepare("SELECT slot_id, part FROM slot_options WHERE id = ?").get(optionId) as { slot_id: number; part: number } | undefined;
-  if (!opt) return;
-  db.prepare("UPDATE slot_options SET is_planned = (id = ?) WHERE slot_id = ? AND part = ?").run(optionId, opt.slot_id, opt.part);
   refresh();
 }
 // Returns a message when the name can't be used, nothing when it worked.

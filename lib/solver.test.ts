@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { solve, totalsOf, type Goal, type SolveInput, type SolverOption, type PoolFood } from "./solver.ts";
 import { resolveVersion, type Adjustment } from "./resolve.ts";
-import { totalsForChoice, type Slot } from "./queries.ts";
+import { averageTotals, type Slot } from "./queries.ts";
 
 // Slot 1 breakfast, slot 2 dinner. Option 10 is the shake, 20 chicken (planned), 21 salmon (a variation).
-const option = (optionId: number, slotId: number, planned: boolean, nutrients: SolverOption["nutrients"], part = 0): SolverOption => ({ optionId, slotId, part, planned, nutrients });
+const option = (optionId: number, slotId: number, _planned: boolean, nutrients: SolverOption["nutrients"], part = 0): SolverOption => ({ optionId, slotId, part, nutrients });
 const OPTIONS: SolverOption[] = [
   option(10, 1, true, { calories: 600, protein: 40, fiber: 10, sodium: 800 }),
   option(20, 2, true, { calories: 700, protein: 55, fiber: 10, sodium: 1200 }),
@@ -18,9 +18,9 @@ const adds = (r: { adjustments: Adjustment[] }) => r.adjustments.flatMap((a) => 
 
 test("a shortfall is closed by adding a food from the pool, no more than needed", () => {
   const r = solve(input({ pool: [bean], goals: [goal({ key: "fiber", target: 28, type: "at_least" })] }));
-  assert.equal(r.before.fiber, 20);
-  assert.equal(r.after.fiber, 28);
-  assert.deepEqual(adds(r).map((a) => [a.slotId, a.ingredientId, a.qty]), [[2, 7, 1]]);
+  assert.equal(r.before.fiber, 19); // shake 10, dinner the average of chicken 10 and salmon 8
+  assert.equal(r.after.fiber, 29); // the smallest step of beans past 28
+  assert.deepEqual(adds(r).map((a) => [a.slotId, a.ingredientId, a.qty]), [[2, 7, 1.25]]);
 });
 
 test("foods are only added to the slots they are allowed in", () => {
@@ -43,7 +43,7 @@ test("over target is left alone when the user allows it, and a hard ceiling stil
 });
 
 test("without a tolerance, being over an aim-for target is reduced", () => {
-  const r = solve(input({ goals: [goal({ key: "protein", target: 87 })] }));
+  const r = solve(input({ goals: [goal({ key: "protein", target: 60 })] }));
   assert.ok(r.after.protein! < r.before.protein!);
 });
 
@@ -90,7 +90,7 @@ test("an already good day comes back unchanged", () => {
   assert.deepEqual(r.adjustments, []);
 });
 
-test("totalsOf agrees with how the page resolves a version", () => {
+test("totalsOf agrees with the page's typical day for a resolved version", () => {
   const meal = (id: number, nutrients: Record<string, number>) => ({ id, name: `m${id}`, totals: nutrients, items: [], status: "approved" }) as never;
   const slots: Slot[] = [
     { id: 1, name: "Breakfast", parts: [{ part: 0, options: [{ optionId: 10, meal: meal(1, OPTIONS[0].nutrients as Record<string, number>), isPlanned: true }] }] },
@@ -106,7 +106,7 @@ test("totalsOf agrees with how the page resolves a version", () => {
   ];
   const ingredient = { id: 7, name: "Beans", serving: "1 cup", nutrients: bean.nutrients, status: "approved" } as never;
   const resolved = resolveVersion(slots, adjustments, { meal: () => undefined, ingredient: () => ingredient });
-  const expected = totalsForChoice({ slots: resolved });
+  const expected = averageTotals(resolved);
   const actual = totalsOf({ options: OPTIONS, mealNutrients: {}, pool: [bean] }, adjustments);
   for (const key of ["calories", "protein", "fiber", "sodium"] as const) assert.ok(Math.abs((actual[key] ?? 0) - (expected[key] ?? 0)) < 1e-9, key);
 });

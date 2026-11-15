@@ -130,11 +130,8 @@ td .pct { color: var(--muted); font-size: 12px; margin-left: 6px; }
 .item h3 { font: 400 22px/1.2 var(--font-display); margin: 0; }
 .item h3 a { color: var(--fg); text-decoration: none; } .item h3 a:hover { color: var(--link); text-decoration: underline; }
 .option { display: flex; gap: 10px; align-items: flex-start; padding: 5px 0; }
-.option .planned-dot { margin-top: 7px; }
 .acts { display: flex; gap: 2px; flex: none; }
 .block { display: block; }
-.planned-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sun); flex: none; align-self: center; }
-.planned-dot.off { background: transparent; border: 1px solid var(--line); }
 .empty { color: var(--muted); padding: 22px 0; }
 
 /* Day layout: slots on the left, totals beside them */
@@ -324,9 +321,11 @@ input.qty { width: 72px; min-height: 30px; padding: 3px 8px; }
 .gh-cell { position: relative; }
 .gh-blk { position: absolute; inset: 0 0 auto 0; display: flex; overflow: hidden; background: var(--surface); border: 1px solid var(--fg); border-radius: 8px; }
 .gh-blk.add { background: transparent; border-style: dashed; }
-.gh-blk .stripe { width: 7px; flex: none; }
-.gh-t { flex: 1; min-width: 0; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 4px 10px; font-size: 13px; }
+.gh-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 5px 10px; font-size: 13px; line-height: 1.3; }
 .gh-t b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gh-blk.odd { border-color: var(--sun); }
+.odd-tag { font-style: normal; font-weight: 500; font-size: 11px; color: var(--sun); margin-left: 8px; }
+.gh-vars { display: grid; gap: 6px; }
 .gh-t span { color: var(--muted); white-space: nowrap; }
 .gh-ghost { position: absolute; inset: 0 0 auto 0; z-index: 2; pointer-events: none; border: 1px dashed var(--muted); border-radius: 8px; }
 .gh-ghost small { position: absolute; right: 8px; bottom: 3px; font-size: 12px; color: var(--muted); }
@@ -338,15 +337,7 @@ input.qty { width: 72px; min-height: 30px; padding: 3px 8px; }
 .gh-d > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .gh-d[open] > summary .gh-blk { box-shadow: 0 0 0 2px var(--sun); }
 .gh-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; padding: 8px 2px 2px; }
-.gh-alts { margin-top: 8px; }
-.gh-alts-title { font-size: 12px; margin-bottom: 3px; }
-.gh-alt { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.gh-alt form { flex: 1; min-width: 0; }
-.gh-alt-pick { width: 100%; display: flex; justify-content: space-between; gap: 10px; text-align: left; font-size: 13px; padding: 4px 10px; background: transparent; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); opacity: 0.8; cursor: pointer; }
-.gh-alt-pick:hover { opacity: 1; color: var(--fg); border-color: var(--fg); }
-.gh-more > summary { list-style: none; cursor: pointer; color: var(--muted); padding: 0 8px; }
-.gh-more > summary::-webkit-details-marker { display: none; }
-.gh-more[open] { flex-basis: 100%; }
+.gh-alts-title { font-size: 12px; margin-bottom: 4px; }
 .gh-dropped { margin-top: 6px; }
 .gh-dropped form { margin-top: 2px; }
 .gh-add { margin-top: 10px; }
@@ -360,8 +351,6 @@ button.meal-open { display: block; width: 100%; padding: 0; min-height: 0; borde
 button.meal-open:hover .gh-blk { border-color: var(--sun); box-shadow: 0 0 0 1px var(--sun); }
 button.meal-open:hover .gh-t b::after { content: "  ingredients ›"; font-weight: 400; color: var(--sun); }
 button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.gh-alt button.meal-open { width: auto; display: inline-flex; color: var(--muted); padding: 4px 10px; border-radius: 8px; }
-.gh-alt button.meal-open:hover { color: var(--fg); background: var(--raised); }
 .meal-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px 20px 20px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 60px rgb(0 0 0 / 0.45); }
 .meal-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
 .meal-dialog header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
@@ -382,28 +371,27 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 .gh-mini h3 span { font-weight: 400; }
 .gh-mini .gh-blk { border-radius: 4px; }
 .gh-mini .gh-ghost { border-radius: 4px; }
-.gh-mini .gh-t { padding: 1px 6px; font-size: 11px; }
-.gh-mini .gh-blk .stripe { width: 4px; }
+.gh-mini .gh-t { flex-direction: row; justify-content: space-between; gap: 6px; padding: 1px 6px; font-size: 11px; }
 .gh-mini .gh-cell { margin-bottom: 2px; }
 .gh-sl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 6px 0 2px; }
 .gh-foot { font-size: 12px; margin: 8px 0 0; }
 .gh-gone s { font-size: 11px; }
 @media (max-width: 560px) {
   .gh-controls { gap: 4px 14px; }
-  .gh-controls .link, .gh-more > summary, .gh-add > summary { min-height: 40px; display: inline-flex; align-items: center; }
-  .gh-alt-pick { min-height: 40px; align-items: center; }
+  .gh-controls .link, .gh-add > summary { min-height: 40px; display: inline-flex; align-items: center; }
 }
 
-/* Base day spread: a strip per nutrient from the lowest to the highest possible day */
+/* Nutrients: a typical day and how far it can swing */
 .sp-lede { font-size: 14px; margin: 0 0 8px; max-width: 70ch; }
 .sp-group h3 { font: 600 12px/1.3 var(--font-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
-.sp-line { display: grid; grid-template-columns: minmax(110px, 1.2fr) repeat(3, minmax(56px, 0.6fr)) minmax(150px, 2fr); gap: 12px; align-items: baseline; padding: 8px 4px; border-radius: 8px; }
+.sp-line { display: grid; grid-template-columns: minmax(120px, 1.3fr) minmax(110px, 1fr) minmax(90px, 1fr); gap: 12px; align-items: baseline; padding: 8px 4px; border-radius: 8px; }
+.sp-line.with-target { grid-template-columns: minmax(120px, 1.3fr) minmax(110px, 1fr) minmax(64px, 0.6fr) minmax(54px, 0.5fr) minmax(90px, 1fr); }
+.sp-pm { font-size: 12px; color: var(--muted); font-weight: 400; }
+.sp-pm.big { color: var(--sun); }
 .sp-head { margin-top: 18px; padding-bottom: 4px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
 .sp-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
 .sp-head .sp-num { font-size: 12px; }
-.sp-span3 { grid-column: span 3; }
 .sp-why { font-size: 13px; line-height: 1.35; }
-.sp-why .sp-swing { margin-left: 0; }
 .sp-row > summary { list-style: none; cursor: pointer; }
 .sp-row { border-bottom: 1px solid var(--line); }
 .sp-row > summary::-webkit-details-marker { display: none; }
@@ -411,14 +399,12 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 .sp-row > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .sp-name { font-weight: 600; }
 .sp-name .muted { font-weight: 400; font-size: 13px; margin-left: 2px; }
-.sp-swing { margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
-.sp-swing.big { color: var(--sun); border-color: var(--sun); }
 .sp-panel { padding: 4px 4px 14px; display: grid; gap: 10px; }
 .sp-days { margin: 0; font-size: 13px; }
 .sp-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 20px; }
 .sp-choice-title { font-size: 12px; margin-bottom: 2px; }
 .sp-choice { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 1px 0; }
 @media (max-width: 560px) {
-  .sp-line { grid-template-columns: 1fr repeat(3, auto); gap: 4px 10px; }
-  .sp-why, .sp-head > span:last-child { grid-column: 1 / -1; }
+  .sp-line, .sp-line.with-target { grid-template-columns: 1fr auto auto auto; gap: 4px 10px; }
+  .sp-why { display: none; }
 }

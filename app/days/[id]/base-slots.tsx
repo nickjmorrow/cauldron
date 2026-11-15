@@ -1,7 +1,7 @@
 import { RenameLabel } from "../../rename.tsx";
 import { Select, type Option } from "../../select.tsx";
 import type { Slot } from "../../../lib/queries.ts";
-import { addOption, addSlot, moveSlot, removeOption, removeSlot, renameSlot, setPlanned } from "../../actions.ts";
+import { addOption, addSlot, moveSlot, removeOption, removeSlot, renameSlot } from "../../actions.ts";
 
 const Chevron = ({ up }: { up?: boolean }) => (
   <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" style={up ? { transform: "rotate(180deg)" } : undefined}>
@@ -33,13 +33,11 @@ export function BaseSlots({ slots, mealOptions }: { slots: Slot[]; mealOptions: 
                   {index > 0 && <div className="with" aria-hidden="true">with</div>}
                   {p.options.map((o) => (
                     <div key={o.optionId} className="option">
-                      <span className={`planned-dot${o.isPlanned ? "" : " off"}`} title={o.isPlanned ? "Planned" : undefined} />
                       <span className="grow">
                         {o.meal.name}{o.meal.status === "proposed" && <span className="badge proposed">proposed</span>}
                         <span className="muted block">{Math.round(o.meal.totals.calories ?? 0)} kcal · {Math.round(o.meal.totals.protein ?? 0)} g protein</span>
                       </span>
                       <span className="acts">
-                        {!o.isPlanned && p.options.length > 1 && <form action={setPlanned.bind(null, o.optionId)}><button className="link">make planned</button></form>}
                         <form action={removeOption.bind(null, o.optionId)}><button className="link danger">remove</button></form>
                       </span>
                     </div>

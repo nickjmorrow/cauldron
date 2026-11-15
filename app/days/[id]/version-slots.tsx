@@ -2,7 +2,7 @@ import { Select, type Option } from "../../select.tsx";
 import { STUB_SERVING, type Slot, type Version } from "../../../lib/queries.ts";
 import type { VersionKey } from "../../../lib/versions.ts";
 import { ghostSlots, type Block } from "../../../lib/ghost.ts";
-import { addFoodToVersion, planInVersion, removeAddedFood, removeFromVersion, resetVersionToBase, restoreToVersion, scaleInVersion, setAddedFoodQty } from "../../actions.ts";
+import { addFoodToVersion, removeAddedFood, removeFromVersion, resetVersionToBase, restoreToVersion, scaleInVersion, setAddedFoodQty } from "../../actions.ts";
 import { BlockCell, EDITOR } from "./blocks.tsx";
 import { MealDialog } from "./meal-dialog.tsx";
 
@@ -16,7 +16,6 @@ const Which = ({ want }: { want: VersionKey }) => (
 );
 
 const round = (n: number | undefined) => Math.round(n ?? 0);
-const signed = (n: number) => `${n >= 0 ? "+" : "−"}${Math.abs(n)}`;
 
 // Portion and drop for a meal that comes from the base day.
 function BaseControls({ block, want }: { block: Block; want: VersionKey }) {
@@ -118,41 +117,21 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
   return (
     <aside aria-label="Slots">
       <h2 style={{ marginTop: 0 }}>Slots</h2>
-      <p className="muted gh-key"><span className="gh-ghostkey" />the base day's portion · click a meal to see its ingredients and change its portion</p>
+      <p className="muted gh-key"><span className="gh-ghostkey" />the base day's portion · click a meal to see what's in it and change its portion</p>
       <div className="items">
         {ghostSlots(base, resolved).map((slot) => (
           <div key={slot.id} className="item">
             <div className="row"><b className="slot-name">{slot.name}</b></div>
             {slot.parts.map((p, index) => {
               const live = p.options.filter((b) => b.status !== "dropped");
-              const main = live.find((b) => b.planned) ?? live[0];
-              const alternates = live.filter((b) => b !== main);
               const dropped = p.options.filter((b) => b.status === "dropped");
               return (
                 <div key={p.part} className="part">
                   {index > 0 && <div className="with" aria-hidden="true">with</div>}
-                  {main && <Editable block={main} slotName={slot.name} want={want}><BaseControls block={main} want={want} /></Editable>}
-                  {alternates.length > 0 && (
-                    <div className="gh-alts">
-                      <div className="muted gh-alts-title">Other versions of this meal</div>
-                      {alternates.map((b) => (
-                        <div key={b.option.optionId} className="gh-alt">
-                          <form action={planInVersion}>
-                            <Which want={want} /><input type="hidden" name="option" value={b.option.optionId} />
-                            <button className="gh-alt-pick" title="Make this the planned meal">
-                              <span>{b.option.meal.name}</span>
-                              <span>{main ? `${signed(b.kcal - main.kcal)} kcal · ${signed(round(b.option.meal.totals.protein) - round(main.option.meal.totals.protein))} g protein` : `${b.kcal} kcal`}</span>
-                            </button>
-                          </form>
-                          <MealDialog label={`${b.option.meal.name}: see ingredients and portion`} trigger={<span className="gh-more-dots" aria-hidden="true">⋯</span>}
-                            title={b.option.meal.name} subtitle={`${slot.name} · another version of this meal · ${portionText(b.factor)} · ${b.kcal} kcal`}>
-                            <MealContents block={b} />
-                            <div className="meal-controls"><BaseControls block={b} want={want} /></div>
-                          </MealDialog>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {live.length > 1 && <div className="muted gh-alts-title">one of {live.length}, each eaten equally often</div>}
+                  <div className="gh-vars">
+                    {live.map((b) => <Editable key={b.option.optionId} block={b} slotName={slot.name} want={want}><BaseControls block={b} want={want} /></Editable>)}
+                  </div>
                   {dropped.map((b) => (
                     <div key={b.option.optionId} className="gh-dropped">
                       <BlockCell block={b} scale={EDITOR} />

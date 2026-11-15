@@ -6,7 +6,7 @@ import { rmSync } from "node:fs";
 const FILE = "data/test-parts.db";
 process.env.CAULDRON_DB = FILE;
 const { getDb } = await import("./db.ts");
-const { getDay, totalsForChoice, variantCombos, partKey, describeSlot } = await import("./queries.ts");
+const { getDay, averageTotals, totalsForChoice, describeSlot } = await import("./queries.ts");
 
 test.after(() => { for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true }); });
 
@@ -39,12 +39,8 @@ test("things in one slot are added together, variations are not", () => {
   assert.equal(describeSlot(d.slots[1]), "Chicken / Salmon");
 });
 
-test("only parts with variations make comparison columns", () => {
+test("a typical day counts every variation of a meal equally", () => {
   const d = getDay(Number(getDb().prepare("SELECT id FROM days WHERE name = 'Test day'").get()!.id))!;
-  const combos = variantCombos(d);
-  assert.equal(combos.length, 2);
-  const dinner = d.slots[1];
-  const salmon = dinner.parts[0].options[1].optionId;
-  const withSalmon = combos.find((c) => c[partKey(dinner.id, 0)] === salmon)!;
-  assert.equal(totalsForChoice(d, withSalmon).calories, 600 + 50 + 560);
+  const dinner = d.slots[1].parts[0].options.map((o) => o.meal.totals.calories ?? 0);
+  assert.equal(averageTotals(d.slots).calories, 600 + 50 + (dinner[0] + dinner[1]) / 2);
 });

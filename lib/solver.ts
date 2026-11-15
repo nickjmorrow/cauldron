@@ -4,7 +4,7 @@ import type { Adjustment } from "./resolve.ts";
 // Fits a version to its targets by adding foods and resizing meals. Pure and deterministic:
 // the same input always gives the same answer. It never drops a meal (the person keeps every variation),
 // and the user's own drops and planned choices are never undone.
-export type SolverOption = { optionId: number; slotId: number; part: number; planned: boolean; nutrients: Nutrients }; // base meal at a full portion
+export type SolverOption = { optionId: number; slotId: number; part: number; nutrients: Nutrients }; // base meal at a full portion
 export type PoolFood = { ingredientId: number; name: string; nutrients: Nutrients; slotIds: number[]; maxQty?: number }; // nutrients per serving; maxQty caps how much may be added
 export type Goal = {
   key: NutrientKey;
@@ -59,18 +59,15 @@ function groupsOf(options: SolverOption[]): SolverOption[][] {
   return [...groups.values()];
 }
 
-// The meal eaten in a part: the planned choice among those not dropped, as the page resolves it.
-function eaten(group: SolverOption[], state: State): SolverOption | undefined {
-  const left = group.filter((o) => !state.removed.has(o.optionId));
-  return left.find((o) => state.planned.has(o.optionId)) ?? left.find((o) => o.planned) ?? left[0];
-}
+// The meals eaten in a part: every variation not dropped, each eaten equally often.
+const eaten = (group: SolverOption[], state: State) => group.filter((o) => !state.removed.has(o.optionId));
 
 function totalsOfState(model: Model, state: State): Nutrients {
   const total: Record<string, number> = {};
   const add = (n: Nutrients, by: number) => { for (const [k, v] of Object.entries(n)) total[k] = (total[k] ?? 0) + (v as number) * by; };
   for (const group of groupsOf(model.options)) {
-    const option = eaten(group, state);
-    if (option) add(option.nutrients, state.scale.get(option.optionId) ?? 1);
+    const left = eaten(group, state);
+    for (const option of left) add(option.nutrients, (state.scale.get(option.optionId) ?? 1) / left.length);
   }
   for (const a of state.adds) {
     const nutrients = a.ingredientId !== null ? (model.ingredientNutrients?.[a.ingredientId] ?? model.pool.find((p) => p.ingredientId === a.ingredientId)?.nutrients) : model.mealNutrients[a.mealId ?? -1];
@@ -79,7 +76,7 @@ function totalsOfState(model: Model, state: State): Nutrients {
   return total as Nutrients;
 }
 
-// What a version eats in total, for showing before and after.
+// What a version eats on a typical day, for showing before and after.
 export function totalsOf(model: Model, adjustments: Adjustment[]): Nutrients {
   return totalsOfState(model, stateOf(adjustments));
 }

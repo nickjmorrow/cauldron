@@ -124,6 +124,16 @@ export function describeSlot(slot: Slot): string {
 }
 
 // Totals for a day given a choice of option per part (keyed by partKey); defaults to the planned one.
+// The typical day: every variation of a meal eaten equally often, so each part counts as the average of its options.
+export function averageTotals(slots: Slot[]): Nutrients {
+  const total: Record<string, number> = {};
+  for (const slot of slots) for (const part of slot.parts) {
+    if (!part.options.length) continue;
+    for (const option of part.options) for (const [k, v] of Object.entries(option.meal.totals)) total[k] = (total[k] ?? 0) + (v as number) / part.options.length;
+  }
+  return total as Nutrients;
+}
+
 export function totalsForChoice(version: { slots: Slot[] }, chosen: Record<string, number> = {}): Nutrients {
   return dayTotals(chosenOptions(version.slots, chosen).map(({ option }) => option.meal.totals));
 }
@@ -227,18 +237,6 @@ export function dayIngredients(day: Day): Ingredient[] {
     }
   }
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// Every combination of one option per part that has more than one option,
-// capped so the comparison table stays readable.
-export function variantCombos(version: { slots: Slot[] }, cap = 12): Record<string, number>[] {
-  let combos: Record<string, number>[] = [{}];
-  for (const slot of version.slots) {
-    for (const part of slot.parts.filter((p) => p.options.length > 1)) {
-      combos = combos.flatMap((c) => part.options.map((o) => ({ ...c, [partKey(slot.id, part.part)]: o.optionId })));
-    }
-  }
-  return combos.slice(0, cap);
 }
 
 

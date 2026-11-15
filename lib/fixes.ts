@@ -52,7 +52,7 @@ export function poolFor(day: Day): PoolFood[] {
 
 export function buildModel(day: Day): Model {
   return {
-    options: day.slots.flatMap((slot) => slot.parts.flatMap((p) => p.options.map((o) => ({ optionId: o.optionId, slotId: slot.id, part: p.part, planned: o.isPlanned, nutrients: o.meal.totals })))),
+    options: day.slots.flatMap((slot) => slot.parts.flatMap((p) => p.options.map((o) => ({ optionId: o.optionId, slotId: slot.id, part: p.part, nutrients: o.meal.totals })))),
     mealNutrients: Object.fromEntries(listMeals().map((m) => [m.id, m.totals])),
     pool: poolFor(day),
     ingredientNutrients: Object.fromEntries(listIngredients().map((i) => [i.id, i.nutrients])),

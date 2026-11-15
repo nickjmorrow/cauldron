@@ -4,22 +4,17 @@ import { nearestVersion, parseVersionKey, versionLabel } from "../../../lib/vers
 import { GOALS } from "../../../lib/calculators.ts";
 import { BaseSlots } from "./base-slots.tsx";
 import { Overview } from "./overview.tsx";
-import { NutrientTable } from "./nutrient-table.tsx";
 import { SpreadTable } from "./spread-table.tsx";
 import { VersionSlots } from "./version-slots.tsx";
 import { VersionToggles } from "./version-toggles.tsx";
-import { FitBar, FixLinks } from "./fix-links.tsx";
+import { FitBar } from "./fix-links.tsx";
 import { LikesPanel } from "./likes-panel.tsx";
 import { listLikes } from "../../../lib/likes.ts";
-import { canTolerate } from "../../../lib/guardrails.ts";
-import { listTolerances } from "../../../lib/tolerances.ts";
-import { NUTRIENTS } from "../../../lib/nutrients.ts";
 
 type Query = { goal?: string; view?: string; notice?: string; error?: string };
 
 const NOTICES: Record<string, string> = {
   nochange: "Nothing to change: this version already fits as well as your foods allow.",
-  allowed: "Okay. That number can go over its target, within its health ceiling.",
 };
 
 export default async function DayPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Query> }) {
@@ -70,19 +65,16 @@ export default async function DayPage({ params, searchParams }: { params: Promis
   ];
 
   const targets = listTargets(want.goal);
-  const tolerances = listTolerances();
-  const labelOf = (key: string) => NUTRIENTS.find((n) => n.key === key)?.label ?? key;
   return (
     <>
       <h1>Day<span className="badge" style={{ verticalAlign: 8 }}>{versionLabel(want)}</span></h1>
       <VersionToggles dayId={day.id} versions={day.versions} current={want} />
-      <p className="lede">Your base day with this version's changes, compared with your daily {want.goal} targets. Hover a number to see what contributes most to it, and to ask for a fix.</p>
+      <p className="lede">Your base day with this version's changes, compared with your daily {want.goal} targets. Every variation counts equally, so the numbers are a typical day.</p>
       {message && <p className={`notice-line${query.error ? " error" : ""}`} role="status">{message}</p>}
       <FitBar want={want} />
       <div className="split">
         <VersionSlots base={day.slots} resolved={version?.slots ?? day.slots} adjustments={version?.adjustments ?? []} want={want} foodOptions={foodOptions} />
-        <NutrientTable slots={version?.slots ?? day.slots} targets={targets} compare
-          extra={(key, { over }) => <FixLinks want={want} nutrient={key} label={labelOf(key)} over={over && !tolerances[key]} canAllow={canTolerate(targets[key])} />} />
+        <SpreadTable slots={version?.slots ?? day.slots} targets={targets} />
       </div>
     </>
   );

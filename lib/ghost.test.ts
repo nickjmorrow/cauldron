@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { blockHeight, ghostSlots } from "./ghost.ts";
+import { blockHeight, ghostSlots, markOdd, type Block } from "./ghost.ts";
 import { resolveVersion, type Adjustment } from "./resolve.ts";
 import type { Slot } from "./queries.ts";
 
@@ -67,4 +67,12 @@ test("choosing another variation moves the planned flag", () => {
 test("block height follows calories but never drops below the minimum", () => {
   assert.equal(blockHeight(600, 0.2, 30), 120);
   assert.equal(blockHeight(50, 0.2, 30), 30);
+});
+
+test("a variation far from the middle of its meal's variations is flagged, small differences are not", () => {
+  const block = (kcal: number): Block => ({ option: {} as never, status: "base", planned: false, baseKcal: kcal, kcal, factor: 1 });
+  assert.deepEqual(markOdd([block(500), block(560), block(900)]).map((b) => b.odd), [undefined, undefined, "bigger"]);
+  assert.deepEqual(markOdd([block(600), block(620), block(250)]).map((b) => b.odd), [undefined, undefined, "smaller"]);
+  assert.deepEqual(markOdd([block(165), block(50), block(14)]).map((b) => b.odd), [undefined, undefined, undefined], "under 150 kcal apart is fine");
+  assert.deepEqual(markOdd([block(400)]).map((b) => b.odd), [undefined], "a single meal has nothing to compare with");
 });
