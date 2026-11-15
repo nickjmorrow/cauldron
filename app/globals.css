@@ -117,7 +117,6 @@ tr.proposed { background: var(--proposed); }
 /* Status */
 .badge { display: inline-block; font-size: 12px; line-height: 1.5; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); margin-left: 8px; color: var(--muted); vertical-align: 1px; }
 .badge.proposed { background: var(--proposed); border-color: var(--glow); color: var(--fg); }
-.badge.dairy { color: var(--bad); border-color: var(--bad); }
 td.good, .good { color: var(--good); } td.close, .close { color: var(--close); } td.bad, .bad { color: var(--bad); }
 td.good { background: color-mix(in oklch, var(--good) 10%, transparent); }
 td.close { background: color-mix(in oklch, var(--close) 11%, transparent); }
@@ -140,8 +139,9 @@ td .pct { color: var(--muted); font-size: 12px; margin-left: 6px; }
 
 /* Day layout: slots on the left, totals beside them */
 .split { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 36px; align-items: start; }
-.split > aside { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 12px; }
-@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } .split > aside { position: static; max-height: none; } }
+/* The slots panel flows with the page: pinned at window height it hid its own bottom (reset, add a food). */
+.split > aside { padding-right: 12px; }
+@media (max-width: 900px) { .split { grid-template-columns: minmax(0, 1fr); } }
 
 .areas { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0 32px; }
 .area { padding: 14px 0; border-bottom: 1px solid var(--line); }
@@ -354,6 +354,23 @@ input.qty { width: 72px; min-height: 30px; padding: 3px 8px; }
 .gh-add form.pick { margin-top: 8px; }
 .item .part + .part { margin-top: 6px; }
 .item .gh-d + .gh-d { margin-top: 6px; }
+.item .meal-open + .meal-open { margin-top: 6px; }
+/* A meal block is a button that opens its dialog */
+button.meal-open { display: block; width: 100%; padding: 0; min-height: 0; border: 0; background: none; text-align: left; cursor: pointer; border-radius: 8px; }
+button.meal-open:hover .gh-blk { border-color: var(--sun); box-shadow: 0 0 0 1px var(--sun); }
+button.meal-open:hover .gh-t b::after { content: "  ingredients ›"; font-weight: 400; color: var(--sun); }
+button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.gh-alt button.meal-open { width: auto; display: inline-flex; color: var(--muted); padding: 4px 10px; border-radius: 8px; }
+.gh-alt button.meal-open:hover { color: var(--fg); background: var(--raised); }
+.meal-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 48px); padding: 18px 20px 20px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 60px rgb(0 0 0 / 0.45); }
+.meal-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+.meal-dialog header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.meal-dialog h3 { margin: 0; font: 600 18px/1.3 var(--font-ui); }
+.meal-dialog header p { margin: 2px 0 0; font-size: 13px; }
+.meal-contents table { width: 100%; font-size: 13px; }
+.meal-contents tfoot th, .meal-contents tfoot td { font-weight: 600; border-top: 1px solid var(--line); }
+.meal-controls { display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.meal-controls form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 /* Overview */
 .gh-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 @media (max-width: 900px) { .gh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -379,35 +396,29 @@ input.qty { width: 72px; min-height: 30px; padding: 3px 8px; }
 
 /* Base day spread: a strip per nutrient from the lowest to the highest possible day */
 .sp-lede { font-size: 14px; margin: 0 0 8px; max-width: 70ch; }
-.sp-group h3 { font: 600 12px/1.3 var(--font-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 18px 0 2px; }
+.sp-group h3 { font: 600 12px/1.3 var(--font-ui); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0; }
+.sp-line { display: grid; grid-template-columns: minmax(110px, 1.2fr) repeat(3, minmax(56px, 0.6fr)) minmax(150px, 2fr); gap: 12px; align-items: baseline; padding: 8px 4px; border-radius: 8px; }
+.sp-head { margin-top: 18px; padding-bottom: 4px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.sp-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 14px; }
+.sp-head .sp-num { font-size: 12px; }
+.sp-span3 { grid-column: span 3; }
+.sp-why { font-size: 13px; line-height: 1.35; }
+.sp-why .sp-swing { margin-left: 0; }
+.sp-row > summary { list-style: none; cursor: pointer; }
 .sp-row { border-bottom: 1px solid var(--line); }
-.sp-row > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 120px minmax(80px, 1fr) minmax(150px, 210px); gap: 14px; align-items: center; padding: 8px 4px; border-radius: 8px; }
 .sp-row > summary::-webkit-details-marker { display: none; }
 .sp-row > summary:hover { background: color-mix(in oklch, var(--raised) 60%, transparent); }
 .sp-row > summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .sp-name { font-weight: 600; }
 .sp-name .muted { font-weight: 400; font-size: 13px; margin-left: 2px; }
-.sp-stat { font-size: 13px; text-align: right; color: var(--fg); }
-.sp-stat > .muted { font-size: 12px; }
-.sp-driver { display: block; margin-top: 1px; line-height: 1.3; }
 .sp-swing { margin-left: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 .sp-swing.big { color: var(--sun); border-color: var(--sun); }
-.sp-same { font-size: 12px; }
-.sp-strip { position: relative; height: 28px; }
-.sp-track { position: absolute; inset: 10px 0 auto 0; height: 8px; border-radius: 4px; background: color-mix(in oklch, var(--line) 70%, transparent); }
-.sp-dot { position: absolute; top: 7px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: var(--protein); }
-.sp-tick { position: absolute; width: 0; border-left: 2px solid var(--sun); top: 3px; bottom: 3px; }
 .sp-panel { padding: 4px 4px 14px; display: grid; gap: 10px; }
-.sp-hist { position: relative; height: 70px; max-width: 520px; }
-.sp-bars { position: absolute; inset: 0 0 16px 0; display: flex; align-items: flex-end; gap: 2px; border-bottom: 1px solid var(--fg); }
-.sp-bars i { flex: 1; background: var(--protein); opacity: 0.85; border-radius: 2px 2px 0 0; }
-.sp-hist .sp-tick { top: 0; bottom: 16px; }
-.sp-ends { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .sp-days { margin: 0; font-size: 13px; }
 .sp-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 20px; }
 .sp-choice-title { font-size: 12px; margin-bottom: 2px; }
 .sp-choice { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 1px 0; }
 @media (max-width: 560px) {
-  .sp-row > summary { grid-template-columns: 1fr; gap: 4px; }
-  .sp-stat { text-align: left; }
+  .sp-line { grid-template-columns: 1fr repeat(3, auto); gap: 4px 10px; }
+  .sp-why, .sp-head > span:last-child { grid-column: 1 / -1; }
 }

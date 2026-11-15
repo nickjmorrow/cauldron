@@ -15,7 +15,7 @@ export default async function Review({ searchParams }: { searchParams: Promise<{
   return (
     <>
       <h1>Review</h1>
-      <p className="lede">Ask for ideas and they wait here. Nothing counts toward a meal or a day until you approve it. Everything proposed is dairy-free.</p>
+      <p className="lede">Ask for ideas and they wait here. Nothing counts toward a meal or a day until you approve it.</p>
       <GenerateForm action={generateIngredients} label="Propose ingredients" placeholder="Lean proteins and vegetables for cut days" />
       <GenerateForm action={generateMeal} label="Propose a meal" placeholder="A high-protein breakfast under 500 kcal" />
 

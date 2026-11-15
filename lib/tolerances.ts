@@ -18,7 +18,7 @@ export function setTolerance(key: NutrientKey, okToExceed: boolean, upTo: number
     return null;
   }
   // A target's direction is the same for every goal, so any goal's copy will do.
-  const problem = checkTolerance(key, listTargets("maintain")[key], upTo, healthCeilings(getProfile()?.weightKg));
+  const problem = checkTolerance(key, listTargets("bulk")[key], upTo, healthCeilings(getProfile()?.weightKg));
   if (problem) return problem;
   db.prepare("INSERT INTO tolerances (nutrient, ok_to_exceed, up_to) VALUES (?, 1, ?) ON CONFLICT (nutrient) DO UPDATE SET ok_to_exceed = 1, up_to = excluded.up_to").run(key, upTo);
   return null;

@@ -26,7 +26,7 @@ const breakfast = slot(mine, "Breakfast"), dinner = slot(mine, "Dinner");
 const shakeOpt = option(breakfast, shake, 1);
 const chickenOpt = option(dinner, chicken, 1), salmonOpt = option(dinner, salmon, 0), turkeyOpt = option(dinner, turkey, 0);
 const foreignOpt = option(slot(other, "Dinner"), chicken, 1);
-const version = () => createVersion(mine, "workout", "bulk", {}); // same version each call
+const version = () => createVersion(mine, "bulk", {}); // same version each call
 
 test("removing a meal and restoring it", () => {
   const v = version();

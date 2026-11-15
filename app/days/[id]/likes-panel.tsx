@@ -4,12 +4,12 @@ import type { Slot } from "../../../lib/queries.ts";
 import type { Like } from "../../../lib/likes.ts";
 import { generateLikes, likeFoodAction, proposeAllVersions, unlikeFoodAction } from "../../actions.ts";
 
-// Under the base day: say what you eat, keep the foods you like for each meal, and ask for all six versions to be improved from them.
+// Under the base day: say what you eat, keep the foods you like for each meal, and ask for every version to be improved from them.
 export function LikesPanel({ slots, likes, foodOptions }: { slots: Slot[]; likes: Like[]; foodOptions: Option[] }) {
   return (
     <section aria-label="Foods you like" className="likes-panel">
       <h2>Foods you like</h2>
-      <p className="lede">Suggested fixes add from these, along with what your base meals already use, and never any dairy. Say what you eat and I'll match it to foods you have; they wait on the Review page until you approve them.</p>
+      <p className="lede">Suggested fixes add from these, along with what your base meals already use. Say what you eat and I'll match it to foods you have; they wait on the Review page until you approve them.</p>
       <GenerateForm action={generateLikes} label="Learn my foods" placeholder="Eggs and toast for breakfast, rice bowls with chicken for lunch…" />
       <div className="items">
         {slots.map((slot) => {
@@ -38,7 +38,7 @@ export function LikesPanel({ slots, likes, foodOptions }: { slots: Slot[]; likes
         })}
       </div>
       <form action={proposeAllVersions} className="add">
-        <button className="primary">Improve all six versions</button>
+        <button className="primary">Improve every version</button>
         <span className="muted">Suggests changes for each version from the base day and these foods; nothing changes until you accept.</span>
       </form>
     </section>

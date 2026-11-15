@@ -11,17 +11,17 @@ const MACROS = ["carbs", "protein", "fat"] as const;
 export default async function Targets({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
   const profile = getProfile();
-  const targets = listTargets("maintain"); // a target's direction is the same for every goal
+  const targets = listTargets("bulk"); // a target's direction is the same for every goal
   const tolerances = listTolerances();
   const ceilings = healthCeilings(profile?.weightKg);
-  const mayExceed = NUTRIENTS.filter((n) => canTolerate(targets[n.key]) && (targets[n.key].daily ?? targets[n.key].workout ?? targets[n.key].rest));
+  const mayExceed = NUTRIENTS.filter((n) => canTolerate(targets[n.key]) && targets[n.key].daily);
   const limits = NUTRIENTS.filter((n) => targets[n.key]?.type === "no_more_than");
   const plans = profile && GOALS.map((g) => ({ ...g, plan: planTargets(profile, g.value) }));
 
   return (
     <>
       <h1>Targets</h1>
-      <p className="lede">Your body and training days set a maintenance calorie number (the SSF Calorie Calculator). Cut, maintain and bulk shift it by 500, and each is split into carbs, protein and fat for workout and rest days (the SSF Macronutrient Calculator). Workout days run about 10% above the average and rest days below it. All three are saved as your targets whenever you press Calculate, and each day on the Days page is compared with the targets for its own goal.</p>
+      <p className="lede">Your body and training days set a maintenance calorie number (the SSF Calorie Calculator). Cut and bulk shift it by 500, and each is split into carbs, protein and fat (the SSF Macronutrient Calculator). That calculator gives workout days more than rest days; your target is their weekly average, so every day eats the same and the week adds up to the same total. Both are saved as your targets whenever you press Calculate, and each version on the Days page is compared with the targets for its goal.</p>
       <ProfileForm key={JSON.stringify(profile)} profile={profile} />
 
       {plans && profile && (
@@ -32,21 +32,19 @@ export default async function Targets({ searchParams }: { searchParams: Promise<
           </p>
           {plans.map(({ value, label, plan }) => (
             <section key={value} aria-label={label}>
-              <h2>{label} · {plan.averageCalories} kcal average</h2>
+              <h2>{label} · {plan.daily.calories} kcal a day</h2>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th></th><th>Workout day</th><th>Rest day</th></tr></thead>
+                  <thead><tr><th></th><th>Every day</th></tr></thead>
                   <tbody>
                     <tr>
                       <td>Calories</td>
-                      <td>{plan.macros.workout.calories} kcal</td>
-                      <td>{plan.macros.rest.calories} kcal</td>
+                      <td>{plan.daily.calories} kcal</td>
                     </tr>
                     {MACROS.map((m) => (
                       <tr key={m}>
                         <td>{m[0].toUpperCase() + m.slice(1)}</td>
-                        <td>{plan.macros.workout[m].g} g<span className="pct">{plan.macros.workout[m].kcal} kcal</span></td>
-                        <td>{plan.macros.rest[m].g} g<span className="pct">{plan.macros.rest[m].kcal} kcal</span></td>
+                        <td>{plan.daily[m].g} g<span className="pct">{plan.daily[m].kcal} kcal</span></td>
                       </tr>
                     ))}
                   </tbody>

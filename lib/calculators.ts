@@ -1,8 +1,8 @@
-// The ss.fitness Calorie and Macronutrient calculators, chained: profile -> calories -> workout/rest macros.
+// The ss.fitness Calorie and Macronutrient calculators, chained: profile -> calories -> workout/rest macros -> one daily target (their weekly average).
 
 export type Sex = "male" | "female";
 export type Activity = "sedentary" | "light" | "moderate" | "heavy" | "extreme";
-export type Goal = "cut" | "maintain" | "bulk";
+export type Goal = "cut" | "bulk";
 type Composition = "burn" | "build";
 
 export const ACTIVITY_LEVELS: { value: Activity; label: string; multiplier: number }[] = [
@@ -15,7 +15,6 @@ export const ACTIVITY_LEVELS: { value: Activity; label: string; multiplier: numb
 
 export const GOALS: { value: Goal; label: string }[] = [
   { value: "cut", label: "Cut" },
-  { value: "maintain", label: "Maintain" },
   { value: "bulk", label: "Bulk" },
 ];
 
@@ -27,7 +26,7 @@ export type Profile = {
   workoutDays: number;
 };
 
-const GOAL_OFFSET = { cut: -500, maintain: 0, bulk: 500 } as const;
+const GOAL_OFFSET = { cut: -500, bulk: 500 } as const;
 const MIN_CALORIES = 1200;
 const KCAL_PER_G = { carbs: 4, protein: 4, fat: 9 } as const;
 
@@ -77,21 +76,29 @@ export function macroTargets(input: { calories: number; workoutDays: number; com
   };
 }
 
+// Every day eats the same: the week's workout and rest days averaged, so the weekly totals are what the calculator asks for.
+function weeklyAverage(workout: DayMacros, rest: DayMacros, workoutDays: number, calories: number): DayMacros {
+  const average = (w: number, r: number) => Math.round((w * workoutDays + r * (7 - workoutDays)) / 7);
+  const macro = (k: "carbs" | "protein" | "fat"): Macro => ({ kcal: average(workout[k].kcal, rest[k].kcal), g: average(workout[k].g, rest[k].g) });
+  return { calories, carbs: macro("carbs"), protein: macro("protein"), fat: macro("fat") };
+}
+
 export function planTargets(p: Profile, goal: Goal) {
   const activity = activityForWorkoutDays(p.workoutDays);
   const { bmr, maintain } = calorieTargets({ ...p, activity });
   const averageCalories = maintain + GOAL_OFFSET[goal];
   const composition = goal === "cut" ? "burn" : "build";
-  return { bmr, maintain, activity, averageCalories, macros: macroTargets({ calories: averageCalories, workoutDays: p.workoutDays, composition }) };
+  const { workout, rest } = macroTargets({ calories: averageCalories, workoutDays: p.workoutDays, composition });
+  return { bmr, maintain, activity, averageCalories, daily: weeklyAverage(workout, rest, p.workoutDays, averageCalories) };
 }
 
-// The calories, carbs, protein and fat targets (grams, except calories) for every goal, on workout and rest days.
+// The daily calories, carbs, protein and fat targets (grams, except calories) for every goal.
 export function goalTargetRows(p: Profile) {
   return GOALS.flatMap(({ value: goal }) => {
-    const { macros } = planTargets(p, goal);
+    const { daily } = planTargets(p, goal);
     return [
-      { goal, nutrient: "calories", workout: macros.workout.calories, rest: macros.rest.calories },
-      ...(["carbs", "protein", "fat"] as const).map((n) => ({ goal, nutrient: n, workout: macros.workout[n].g, rest: macros.rest[n].g })),
+      { goal, nutrient: "calories", daily: daily.calories },
+      ...(["carbs", "protein", "fat"] as const).map((n) => ({ goal, nutrient: n, daily: daily[n].g })),
     ];
   });
 }

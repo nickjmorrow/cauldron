@@ -1,8 +1,6 @@
 import { NUTRIENTS, type Nutrients } from "./nutrients.ts";
 
 export type Target = {
-  workout: number | null;
-  rest: number | null;
   daily: number | null;
   type: "at_least" | "no_more_than" | null;
 };
@@ -54,14 +52,4 @@ export function judge(value: number, target: number, type: Target["type"]): { pc
     return { pct, verdict: pct <= 1 ? "good" : pct <= 1.1 ? "close" : "bad" };
   }
   return { pct, verdict: pct >= 1 ? "good" : pct >= 0.9 ? "close" : "bad" };
-}
-
-const DAIRY_WORDS = /\b(milk|cheese|butter|cream|yogurt|yoghurt|whey|casein|ghee|kefir|custard|ice cream)\b/i;
-const NON_DAIRY_MILKS = /\b(oat|almond|soy|coconut|rice|cashew|pea|hemp)\s?(milk|milks|butter|cream|yogurt)\b|oatmilk|peanut butter|nut butter|cocoa butter|shea butter|apple butter/i;
-
-// Name-based guess; a person can override it on the ingredient.
-export function looksDairy(name: string, category = ""): boolean {
-  if (/^dairy and egg/i.test(category) && !/\begg\b/i.test(name)) return true;
-  if (NON_DAIRY_MILKS.test(name)) return false;
-  return DAIRY_WORDS.test(name);
 }

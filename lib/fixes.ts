@@ -8,7 +8,7 @@ import { NUTRIENTS, type NutrientKey } from "./nutrients.ts";
 import { GOALS } from "./calculators.ts";
 import { judge } from "./compute.ts";
 import type { Adjustment } from "./resolve.ts";
-import type { DayKind, VersionKey } from "./versions.ts";
+import { versionLabel, type VersionKey } from "./versions.ts";
 
 // Suggested fixes: the solver proposes, the person reviews, and only then does a version change.
 
@@ -21,11 +21,11 @@ const USUAL_AMOUNT_FACTOR = 2;
 const LIKED_FOOD_CAP = 3;
 
 // Foods the solver may add to each slot: those you like there (approved), plus what the base day already uses there.
-// Dairy never comes from a suggestion, and neither does anything unapproved (foods already added by hand still count toward totals, see buildModel).
+// Nothing unapproved comes from a suggestion (foods already added by hand still count toward totals, see buildModel).
 export function poolFor(day: Day): PoolFood[] {
   const all = listIngredients();
   const byId = new Map(all.map((i) => [i.id, i]));
-  const allowed = new Set(all.filter((i) => i.status === "approved" && !i.contains_dairy && i.serving !== STUB_SERVING).map((i) => i.id));
+  const allowed = new Set(all.filter((i) => i.status === "approved" && i.serving !== STUB_SERVING).map((i) => i.id));
   const slotIds = new Map<number, Set<number>>();
   const caps = new Map<number, number>();
   const allow = (ingredientId: number, slotId: number, cap: number) => {
@@ -65,20 +65,20 @@ export function goalsWithData(model: Model, goals: Goal[]): Goal[] {
   return goals.filter((g) => sources.some((n) => n[g.key] !== undefined));
 }
 
-// Dairy, anything unapproved and the "1 meal" stubs are never suggested, whoever added them.
+// Anything unapproved and the "1 meal" stubs are never suggested, whoever added them.
 function suggestable(adjustments: Adjustment[]): Adjustment[] {
-  const ok = new Set(listIngredients().filter((i) => i.status === "approved" && !i.contains_dairy && i.serving !== STUB_SERVING).map((i) => i.id));
+  const ok = new Set(listIngredients().filter((i) => i.status === "approved" && i.serving !== STUB_SERVING).map((i) => i.id));
   return adjustments.filter((a) => a.kind !== "add" || a.ingredientId === null || ok.has(a.ingredientId));
 }
 
-// What the solver aims for: every nutrient with a target for this goal and kind, with the user's tolerances and the health ceilings.
+// What the solver aims for: every nutrient with a target for this goal, with the user's tolerances and the health ceilings.
 export function goalsFor(want: VersionKey, focus: NutrientKey[] | null): Goal[] {
   const targets = listTargets(want.goal);
   const tolerances = listTolerances();
   const ceilings = healthCeilings(getProfile()?.weightKg);
   return NUTRIENTS.flatMap((n): Goal[] => {
     const t = targets[n.key];
-    const target = t ? (t.daily ?? (want.kind === "workout" ? t.workout : t.rest)) : null;
+    const target = t?.daily ?? null;
     if (!t || !target) return [];
     const base = WEIGHTS[n.key] ?? (t.type === "no_more_than" ? 3 : 1);
     return [{ key: n.key, target, type: t.type, weight: focus?.includes(n.key) ? base * FOCUS_BOOST : base, okUpTo: okUpTo(tolerances[n.key], ceilings[n.key]), hardCeiling: ceilings[n.key] }];
@@ -114,7 +114,6 @@ export function createFixProposal(versionId: number, focus: NutrientKey[] | null
   return insertProposal(versionId, "fix", result.adjustments, version.adjustments, result.before, result.after, focus?.join(",") ?? "");
 }
 
-const KINDS: DayKind[] = ["workout", "rest"];
 const HEADLINE = new Set<NutrientKey>(["calories", "protein", "carbs", "fat"]);
 
 // For every other version: start from this version's changes and refit them to that version's own targets.
@@ -125,27 +124,23 @@ export function createMatchAllProposals(sourceVersionId: number): number[] {
   const model = buildModel(day);
   const ids: number[] = [];
   for (const goal of GOALS.map((g) => g.value)) {
-    for (const kind of KINDS) {
-      if (goal === source.goal && kind === source.kind) continue;
-      const target = createVersion(day.id, kind, goal);
-      const current = getDay(day.id)!.versions.find((v) => v.id === target)!;
-      const result = solve({ ...model, goals: goalsWithData(model, goalsFor({ goal, kind }, null)), start: suggestable(source.adjustments) });
-      if (normal(result.adjustments) === normal(current.adjustments)) continue;
-      ids.push(insertProposal(target, "generate", result.adjustments, current.adjustments, totalsOf(model, current.adjustments), result.after, "all"));
-    }
+    if (goal === source.goal) continue;
+    const target = createVersion(day.id, goal);
+    const current = getDay(day.id)!.versions.find((v) => v.id === target)!;
+    const result = solve({ ...model, goals: goalsWithData(model, goalsFor({ goal }, null)), start: suggestable(source.adjustments) });
+    if (normal(result.adjustments) === normal(current.adjustments)) continue;
+    ids.push(insertProposal(target, "generate", result.adjustments, current.adjustments, totalsOf(model, current.adjustments), result.after, "all"));
   }
   return ids;
 }
 
-// One suggestion for each of the six versions that can be improved with what the base day and your liked foods allow.
+// One suggestion for each version that can be improved with what the base day and your liked foods allow.
 export function createFixAllProposals(): number[] {
   const day = getOnlyDay();
   const ids: number[] = [];
   for (const goal of GOALS.map((g) => g.value)) {
-    for (const kind of KINDS) {
-      const id = createFixProposal(createVersion(day.id, kind, goal), null);
-      if (id !== null) ids.push(id);
-    }
+    const id = createFixProposal(createVersion(day.id, goal), null);
+    if (id !== null) ids.push(id);
   }
   return ids;
 }
@@ -239,8 +234,8 @@ export function listPendingProposals(): ProposalView[] {
     const shown = goalsFor(version, null).filter((g) => HEADLINE.has(g.key)
       || judge(before[g.key] ?? 0, g.target, g.type).verdict !== judge(after[g.key] ?? 0, g.target, g.type).verdict);
     return [{
-      id: r.id, kind: r.kind, versionLabel: `${version.goal[0].toUpperCase()}${version.goal.slice(1)} · ${version.kind[0].toUpperCase()}${version.kind.slice(1)}`,
-      versionHref: `/days/${day.id}?goal=${version.goal}&kind=${version.kind}`, focus: r.note,
+      id: r.id, kind: r.kind, versionLabel: versionLabel(version),
+      versionHref: `/days/${day.id}?goal=${version.goal}`, focus: r.note,
       changes: describeChanges(day.slots, version.adjustments, JSON.parse(r.adjustments) as Adjustment[], foods),
       rows: shown.map((g) => { const n = NUTRIENTS.find((x) => x.key === g.key)!; return { label: n.label, unit: n.unit, target: g.target, before: before[g.key] ?? 0, after: after[g.key] ?? 0 }; }),
     }];

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { healthCeilings, canTolerate, checkTolerance, okUpTo, PROTEIN_G_PER_KG } from "./guardrails.ts";
 import type { Target } from "./compute.ts";
 
-const atLeast: Target = { workout: null, rest: null, daily: 28, type: "at_least" };
-const noMore: Target = { workout: null, rest: null, daily: 2300, type: "no_more_than" };
-const aim: Target = { workout: 120, rest: 90, daily: null, type: null };
+const atLeast: Target = { daily: 28, type: "at_least" };
+const noMore: Target = { daily: 2300, type: "no_more_than" };
+const aim: Target = { daily: 105, type: null };
 
 test("the protein ceiling follows body weight, with a fixed fallback when there is no profile", () => {
   assert.equal(healthCeilings(80).protein, Math.round(80 * PROTEIN_G_PER_KG));

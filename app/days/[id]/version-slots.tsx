@@ -1,9 +1,10 @@
 import { Select, type Option } from "../../select.tsx";
-import type { Slot, Version } from "../../../lib/queries.ts";
+import { STUB_SERVING, type Slot, type Version } from "../../../lib/queries.ts";
 import type { VersionKey } from "../../../lib/versions.ts";
 import { ghostSlots, type Block } from "../../../lib/ghost.ts";
 import { addFoodToVersion, planInVersion, removeAddedFood, removeFromVersion, resetVersionToBase, restoreToVersion, scaleInVersion, setAddedFoodQty } from "../../actions.ts";
 import { BlockCell, EDITOR } from "./blocks.tsx";
+import { MealDialog } from "./meal-dialog.tsx";
 
 const PORTIONS = [[0.5, "½ portion"], [0.75, "¾ portion"], [1, "full portion"], [1.25, "1¼ portions"], [1.5, "1½ portions"]] as const;
 
@@ -11,7 +12,6 @@ const PORTIONS = [[0.5, "½ portion"], [0.75, "¾ portion"], [1, "full portion"]
 const Which = ({ want }: { want: VersionKey }) => (
   <>
     <input type="hidden" name="goal" value={want.goal} />
-    <input type="hidden" name="kind" value={want.kind} />
   </>
 );
 
@@ -25,12 +25,14 @@ function BaseControls({ block, want }: { block: Block; want: VersionKey }) {
     <>
       <form action={scaleInVersion} className="inline">
         <Which want={want} /><input type="hidden" name="option" value={optionId} />
-        <select key={block.factor} name="factor" defaultValue={block.factor} aria-label={`Portion of ${block.option.meal.name}`}>
-          {PORTIONS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
-        </select>
-        <button className="link">set</button>
+        <label>Portion in this version{" "}
+          <select key={block.factor} name="factor" defaultValue={block.factor}>
+            {PORTIONS.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+          </select>
+        </label>
+        <button>Set portion</button>
       </form>
-      <form action={removeFromVersion}><Which want={want} /><input type="hidden" name="option" value={optionId} /><button className="link danger">drop</button></form>
+      <form action={removeFromVersion}><Which want={want} /><input type="hidden" name="option" value={optionId} /><button className="link danger">Drop from this version</button></form>
     </>
   );
 }
@@ -44,22 +46,64 @@ function AddedControls({ block, want }: { block: Block; want: VersionKey }) {
     <>
       <form action={setAddedFoodQty} className="inline">
         <Which want={want} /><input type="hidden" name="adjustment" value={adjust.adjustmentId} />
-        <input name="qty" type="number" step="0.25" min="0.25" max="20" defaultValue={adjust.qty} aria-label={`Amount of ${block.option.meal.name}`} className="qty" required />
+        <label>Amount{" "}
+          <input name="qty" type="number" step="0.25" min="0.25" max="20" defaultValue={adjust.qty} className="qty" required />
+        </label>
         {serving && <span className="muted">× {serving}</span>}
-        <button className="link">set</button>
+        <button>Set amount</button>
       </form>
-      <form action={removeAddedFood}><Which want={want} /><input type="hidden" name="adjustment" value={adjust.adjustmentId} /><button className="link danger">remove</button></form>
+      <form action={removeAddedFood}><Which want={want} /><input type="hidden" name="adjustment" value={adjust.adjustmentId} /><button className="link danger">Remove from this version</button></form>
     </>
   );
 }
 
-// The block is the summary, so clicking it opens its controls: no script needed.
-function Editable({ block, want, children }: { block: Block; want: VersionKey; children: React.ReactNode }) {
+const one = (n: number) => Math.round(n * 10) / 10;
+// "100 g" servings read best as grams; anything else as a count of servings.
+function amountText(servings: number, serving: string) {
+  const grams = serving.match(/^(\d+(?:\.\d+)?) g$/);
+  if (grams) return `${Math.round(servings * Number(grams[1]))} g`;
+  return `${Math.round(servings * 100) / 100} × ${serving}`;
+}
+const portionText = (factor: number) => PORTIONS.find(([v]) => v === factor)?.[1] ?? `×${factor}`;
+
+// What goes into a meal at this version's portion: each ingredient's amount, calories and macros, then the total.
+// The resolved meal's totals are already at this portion; its items are the recipe's, except an added food, whose one item already has the amount.
+function MealContents({ block }: { block: Block }) {
+  const { meal, adjust } = block.option;
+  const by = adjust?.kind === "add" ? (adjust.ingredientId !== null ? 1 : adjust.qty) : block.factor;
+  const items = meal.items.filter((i) => i.ingredient.serving !== STUB_SERVING);
+  const macros = (n: { calories?: number; protein?: number; carbs?: number; fat?: number }, times: number) => (
+    <><td className="num">{round((n.calories ?? 0) * times)}</td><td className="num">{one((n.protein ?? 0) * times)}</td><td className="num">{one((n.carbs ?? 0) * times)}</td><td className="num">{one((n.fat ?? 0) * times)}</td></>
+  );
   return (
-    <details className="gh-d">
-      <summary aria-label={`${block.option.meal.name}: show controls`}><BlockCell block={block} scale={EDITOR} /></summary>
-      <div className="gh-controls">{children}</div>
-    </details>
+    <div className="table-wrap meal-contents">
+      <table>
+        <thead><tr><th>Ingredient</th><th className="num">Amount</th><th className="num">kcal</th><th className="num">Protein g</th><th className="num">Carbs g</th><th className="num">Fat g</th></tr></thead>
+        <tbody>
+          {items.length === 0 && <tr><td colSpan={6} className="muted">No ingredient breakdown: this meal is counted as a whole.</td></tr>}
+          {items.map(({ ingredient, qty }) => (
+            <tr key={ingredient.id}>
+              <td>{ingredient.name}</td>
+              <td className="num">{amountText(qty * by, ingredient.serving)}</td>
+              {macros(ingredient.nutrients, qty * by)}
+            </tr>
+          ))}
+        </tbody>
+        <tfoot><tr><th>Total</th><td />{macros(meal.totals, 1)}</tr></tfoot>
+      </table>
+    </div>
+  );
+}
+
+// Clicking a meal opens a dialog: what is in it at this portion, then the controls.
+function Editable({ block, slotName, want, children }: { block: Block; slotName: string; want: VersionKey; children: React.ReactNode }) {
+  const added = block.status === "added";
+  return (
+    <MealDialog label={`${block.option.meal.name}: see ingredients and portion`} trigger={<BlockCell block={block} scale={EDITOR} />}
+      title={block.option.meal.name} subtitle={`${slotName} · ${added ? "added in this version" : portionText(block.factor)} · ${block.kcal} kcal`}>
+      <MealContents block={block} />
+      <div className="meal-controls">{children}</div>
+    </MealDialog>
   );
 }
 
@@ -74,7 +118,7 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
   return (
     <aside aria-label="Slots">
       <h2 style={{ marginTop: 0 }}>Slots</h2>
-      <p className="muted gh-key"><span className="gh-ghostkey" />the base day's portion · click a block to change it</p>
+      <p className="muted gh-key"><span className="gh-ghostkey" />the base day's portion · click a meal to see its ingredients and change its portion</p>
       <div className="items">
         {ghostSlots(base, resolved).map((slot) => (
           <div key={slot.id} className="item">
@@ -87,7 +131,7 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
               return (
                 <div key={p.part} className="part">
                   {index > 0 && <div className="with" aria-hidden="true">with</div>}
-                  {main && <Editable block={main} want={want}><BaseControls block={main} want={want} /></Editable>}
+                  {main && <Editable block={main} slotName={slot.name} want={want}><BaseControls block={main} want={want} /></Editable>}
                   {alternates.length > 0 && (
                     <div className="gh-alts">
                       <div className="muted gh-alts-title">Other versions of this meal</div>
@@ -100,7 +144,11 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
                               <span>{main ? `${signed(b.kcal - main.kcal)} kcal · ${signed(round(b.option.meal.totals.protein) - round(main.option.meal.totals.protein))} g protein` : `${b.kcal} kcal`}</span>
                             </button>
                           </form>
-                          <details className="gh-more"><summary aria-label={`More for ${b.option.meal.name}`}>⋯</summary><div className="gh-controls"><BaseControls block={b} want={want} /></div></details>
+                          <MealDialog label={`${b.option.meal.name}: see ingredients and portion`} trigger={<span className="gh-more-dots" aria-hidden="true">⋯</span>}
+                            title={b.option.meal.name} subtitle={`${slot.name} · another version of this meal · ${portionText(b.factor)} · ${b.kcal} kcal`}>
+                            <MealContents block={b} />
+                            <div className="meal-controls"><BaseControls block={b} want={want} /></div>
+                          </MealDialog>
                         </div>
                       ))}
                     </div>
@@ -114,7 +162,7 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
                 </div>
               );
             })}
-            {slot.added.map((b) => <Editable key={b.option.optionId} block={b} want={want}><AddedControls block={b} want={want} /></Editable>)}
+            {slot.added.map((b) => <Editable key={b.option.optionId} block={b} slotName={slot.name} want={want}><AddedControls block={b} want={want} /></Editable>)}
             <details className="gh-add">
               <summary>+ add a food</summary>
               <form action={addFoodToVersion} className="pick">

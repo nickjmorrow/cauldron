@@ -5,7 +5,6 @@ import type { VersionKey } from "../../../lib/versions.ts";
 const Which = ({ want }: { want: VersionKey }) => (
   <>
     <input type="hidden" name="goal" value={want.goal} />
-    <input type="hidden" name="kind" value={want.kind} />
   </>
 );
 

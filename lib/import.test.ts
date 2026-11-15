@@ -63,7 +63,7 @@ test("importing refuses to run over a database whose versions have adjustments, 
   const env = { ...process.env, CAULDRON_DB: guarded };
   const dbUrl = new URL("./db.ts", import.meta.url).href;
   const seed = spawnSync(process.execPath, ["--input-type=module", "-e",
-    `const { getDb } = await import(${JSON.stringify(dbUrl)}); getDb().exec("INSERT INTO days (id, name) VALUES (1,'D'); INSERT INTO day_versions (id, day_id, kind, goal, status) VALUES (1,1,'rest','cut','approved'); INSERT INTO day_slots (id, day_id, name, position) VALUES (1,1,'B',1); INSERT INTO meals (id, name) VALUES (1,'M'); INSERT INTO slot_options (id, slot_id, meal_id) VALUES (1,1,1); INSERT INTO version_adjustments (version_id, kind, option_id) VALUES (1,'remove',1)");`], { env, encoding: "utf8" });
+    `const { getDb } = await import(${JSON.stringify(dbUrl)}); getDb().exec("INSERT INTO days (id, name) VALUES (1,'D'); INSERT INTO day_versions (id, day_id, goal, status) VALUES (1,1,'cut','approved'); INSERT INTO day_slots (id, day_id, name, position) VALUES (1,1,'B',1); INSERT INTO meals (id, name) VALUES (1,'M'); INSERT INTO slot_options (id, slot_id, meal_id) VALUES (1,1,1); INSERT INTO version_adjustments (version_id, kind, option_id) VALUES (1,'remove',1)");`], { env, encoding: "utf8" });
   assert.equal(seed.status, 0, seed.stderr);
   const attempt = spawnSync("node", ["scripts/import-xlsx.ts"], { env, encoding: "utf8" });
   assert.notEqual(attempt.status, 0);

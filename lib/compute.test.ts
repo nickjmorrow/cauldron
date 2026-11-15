@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mealTotals, dayTotals, judge, looksDairy } from "./compute.ts";
+import { mealTotals, dayTotals, judge } from "./compute.ts";
 
 test("meal totals scale each ingredient by qty", () => {
   const shake = { nutrients: { calories: 400, protein: 40 }, qty: 1 };
@@ -24,14 +24,6 @@ test("judge: at-least and no-more-than directions", () => {
   assert.equal(judge(10, 28, "at_least").verdict, "bad");
   assert.equal(judge(2421, 2300, "no_more_than").verdict, "close");
   assert.equal(judge(25, 50, "no_more_than").verdict, "good");
-});
-
-test("dairy detection keeps plant milks and peanut butter out", () => {
-  assert.equal(looksDairy("Butter, Salted"), true);
-  assert.equal(looksDairy("Cheese, cheddar"), true);
-  assert.equal(looksDairy("Oatly, Oatmilk, Full Fat"), false);
-  assert.equal(looksDairy("Peanut butter, smooth"), false);
-  assert.equal(looksDairy("Egg, Whole, Raw, Jumbo", "Dairy and Egg Products"), false);
 });
 
 import { mapNutrients } from "./usda.ts";

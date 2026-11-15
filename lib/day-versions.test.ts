@@ -37,6 +37,9 @@ const breakfast = slot(standard, "Breakfast", 1), dinner = slot(standard, "Dinne
 const shakeOption = option(breakfast, shake, 1, 0), greensOption = option(breakfast, greens, 1, 1);
 option(dinner, chicken, 1, 0); option(dinner, salmon, 0, 0);
 
+// A day has one version per goal, so a test that needs fresh ones starts by clearing them.
+const clearVersions = (d: number) => db.prepare("DELETE FROM day_versions WHERE day_id = ?").run(d);
+
 test("a day with no slots or versions loads with nothing in it", () => {
   const empty = day("Empty day");
   const loaded = getDay(empty)!;
@@ -45,7 +48,7 @@ test("a day with no slots or versions loads with nothing in it", () => {
 });
 
 test("a version resolves to the base day with its adjustments applied, and the base is untouched", () => {
-  const v = createVersion(standard, "workout", "bulk");
+  const v = createVersion(standard, "bulk");
   adjust(v, "remove", { option_id: greensOption });
   adjust(v, "scale", { option_id: shakeOption, factor: 0.5 });
   adjust(v, "add", { slot_id: dinner, ingredient_id: banana, qty: 2 });
@@ -58,11 +61,12 @@ test("a version resolves to the base day with its adjustments applied, and the b
 });
 
 test("a version started from another copies its adjustments, not its slots", () => {
-  const from = createVersion(standard, "rest", "cut");
+  clearVersions(standard);
+  const from = createVersion(standard, "cut");
   adjust(from, "remove", { option_id: greensOption });
   adjust(from, "add", { slot_id: dinner, ingredient_id: egg, qty: 1 });
   const slotsBefore = n("day_slots");
-  const copy = createVersion(standard, "rest", "bulk", { copyFrom: from });
+  const copy = createVersion(standard, "bulk", { copyFrom: from });
   assert.equal(n("day_slots"), slotsBefore);
   const rows = (v: number) => db.prepare("SELECT kind, option_id, slot_id, ingredient_id, qty FROM version_adjustments WHERE version_id = ? ORDER BY kind").all(v).map((r) => ({ ...r }));
   assert.deepEqual(rows(copy), rows(from));
@@ -70,28 +74,29 @@ test("a version started from another copies its adjustments, not its slots", () 
 });
 
 test("creating the same version twice returns the first one and adds nothing", () => {
-  const first = createVersion(standard, "workout", "cut");
+  clearVersions(standard);
+  const first = createVersion(standard, "cut");
   adjust(first, "remove", { option_id: greensOption });
   const before = { versions: n("day_versions"), adjustments: n("version_adjustments") };
-  assert.equal(createVersion(standard, "workout", "cut", { copyFrom: first }), first);
+  assert.equal(createVersion(standard, "cut", { copyFrom: first }), first);
   assert.deepEqual({ versions: n("day_versions"), adjustments: n("version_adjustments") }, before);
 });
 
 test("versionExists follows the table", () => {
   const d = day("Exists day");
-  assert.equal(versionExists(d, "rest", "cut"), false);
-  const v = createVersion(d, "rest", "cut");
-  assert.equal(versionExists(d, "rest", "cut"), true);
+  assert.equal(versionExists(d, "cut"), false);
+  const v = createVersion(d, "cut");
+  assert.equal(versionExists(d, "cut"), true);
   db.prepare("DELETE FROM day_versions WHERE id = ?").run(v);
-  assert.equal(versionExists(d, "rest", "cut"), false);
+  assert.equal(versionExists(d, "cut"), false);
 });
 
 test("a day's ingredients cover the base meals and what approved versions add, but not proposed versions", () => {
   const d = day("Ingredients day");
   const s = slot(d, "Lunch", 1);
   option(s, chicken, 1, 0);
-  const approved = createVersion(d, "rest", "maintain");
-  const proposed = createVersion(d, "workout", "maintain", { status: "proposed" });
+  const approved = createVersion(d, "cut");
+  const proposed = createVersion(d, "bulk", { status: "proposed" });
   adjust(approved, "add", { slot_id: s, ingredient_id: banana, qty: 1 });
   adjust(proposed, "add", { slot_id: s, ingredient_id: egg, qty: 1 });
   assert.deepEqual(dayIngredients(getDay(d)!).map((i) => i.name), ["Banana", "Chicken"]);
@@ -101,7 +106,7 @@ test("deleting the day takes its versions, slots, meals and adjustments with it"
   const d = day("Doomed day");
   const s = slot(d, "Lunch", 1);
   const o = option(s, chicken, 1, 0);
-  const v = createVersion(d, "rest", "maintain");
+  const v = createVersion(d, "bulk");
   adjust(v, "remove", { option_id: o });
   adjust(v, "add", { slot_id: s, ingredient_id: egg, qty: 1 });
   const before = { versions: n("day_versions"), slots: n("day_slots"), options: n("slot_options"), adjustments: n("version_adjustments") };
@@ -113,7 +118,7 @@ test("deleting the day takes its versions, slots, meals and adjustments with it"
 test("the pending count follows proposed versions", () => {
   const before = pendingCount();
   const d = day("Pending day");
-  const v = createVersion(d, "rest", "maintain", { status: "proposed" });
+  const v = createVersion(d, "bulk", { status: "proposed" });
   assert.equal(pendingCount(), before + 1);
   db.prepare("UPDATE day_versions SET status = 'approved' WHERE id = ?").run(v);
   assert.equal(pendingCount(), before);
@@ -121,15 +126,15 @@ test("the pending count follows proposed versions", () => {
 
 test("rejecting a proposal removes just that version and keeps the day", () => {
   const d = day("Kept day");
-  const v = createVersion(d, "workout", "bulk", { status: "proposed" });
+  const v = createVersion(d, "bulk", { status: "proposed" });
   rejectVersion(v);
-  assert.equal(versionExists(d, "workout", "bulk"), false);
+  assert.equal(versionExists(d, "bulk"), false);
   assert.ok(db.prepare("SELECT id FROM days WHERE id = ?").get(d));
 });
 
 test("rejecting never touches an approved version", () => {
   const d = day("Approved day");
-  const v = createVersion(d, "rest", "cut");
+  const v = createVersion(d, "cut");
   rejectVersion(v);
-  assert.equal(versionExists(d, "rest", "cut"), true);
+  assert.equal(versionExists(d, "cut"), true);
 });

@@ -12,8 +12,8 @@ const { pendingCount } = await import("./queries.ts");
 test.after(() => { for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true }); });
 
 const db = getDb();
-const food = (name: string, dairy = 0, status = "approved") => Number(db.prepare("INSERT INTO ingredients (name, serving, status, contains_dairy, nutrients) VALUES (?, '100 g', ?, ?, '{}')").run(name, status, dairy).lastInsertRowid);
-const eggs = food("Eggs"), oats = food("Oats"), yogurt = food("Greek yogurt", 1), maybe = food("Maybe", 0, "proposed");
+const food = (name: string, status = "approved") => Number(db.prepare("INSERT INTO ingredients (name, serving, status, nutrients) VALUES (?, '100 g', ?, '{}')").run(name, status).lastInsertRowid);
+const eggs = food("Eggs"), oats = food("Oats"), maybe = food("Maybe", "proposed");
 
 test("a liked food is saved per meal and listed with its name", () => {
   assert.equal(likeFood(eggs, "Breakfast"), null);
@@ -22,8 +22,7 @@ test("a liked food is saved per meal and listed with its name", () => {
   assert.deepEqual(listLikes().map((l) => [l.name, l.slotName, l.status]), [["Eggs", "Breakfast", "approved"], ["Eggs", "Dinner", "approved"]]);
 });
 
-test("dairy and unapproved foods cannot be liked, and neither can unknown ones", () => {
-  assert.match(likeFood(yogurt, "Breakfast")!, /dairy/i);
+test("unapproved foods cannot be liked, and neither can unknown ones", () => {
   assert.match(likeFood(maybe, "Breakfast")!, /approved/);
   assert.match(likeFood(99999, "Breakfast")!, /isn't a known food/);
   assert.equal(listLikes().length, 2);

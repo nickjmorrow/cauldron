@@ -2,14 +2,14 @@ import { getDb } from "./db.ts";
 import { mealTotals, dayTotals, type Target } from "./compute.ts";
 import type { Nutrients } from "./nutrients.ts";
 import { goalTargetRows, type Goal, type Profile } from "./calculators.ts";
-import type { DayKind, VersionKey } from "./versions.ts";
+import type { VersionKey } from "./versions.ts";
 import { chosenOptions, partKey } from "./chosen.ts";
 import { resolveVersion, type Adjustment, type OptionAdjust } from "./resolve.ts";
 
 export type Status = "proposed" | "approved";
 export type Ingredient = {
   id: number; name: string; serving: string; source: string; fdc_id: number | null;
-  notes: string; contains_dairy: boolean; status: Status; nutrients: Nutrients;
+  notes: string; status: Status; nutrients: Nutrients;
 };
 export type Meal = { id: number; name: string; typical_slot: string; source: string; notes: string; status: Status };
 export type MealWithTotals = Meal & { totals: Nutrients; items: { ingredient: Ingredient; qty: number }[] };
@@ -17,7 +17,6 @@ export type MealWithTotals = Meal & { totals: Nutrients; items: { ingredient: In
 type Row = Record<string, unknown>;
 const toIngredient = (r: Row): Ingredient => ({
   ...(r as unknown as Ingredient),
-  contains_dairy: !!r.contains_dairy,
   nutrients: JSON.parse(r.nutrients as string),
 });
 
@@ -54,7 +53,7 @@ export type SlotOption = { optionId: number; meal: MealWithTotals; isPlanned: bo
 // A part is one thing eaten in the slot; several options in a part are variations of it.
 export type Part = { part: number; options: SlotOption[] };
 export type Slot = { id: number; name: string; parts: Part[] };
-// One of a day's six versions (workout or rest, for each goal): the base day plus adjustments.
+// One of a day's versions (one per goal): the base day plus adjustments.
 // `slots` is the day this version actually eats, already resolved; the base is on the Day.
 export type Version = VersionKey & { id: number; dayId: number; status: Status; adjustments: Adjustment[]; slots: Slot[] };
 export type Day = { id: number; name: string; notes: string; slots: Slot[]; versions: Version[] };
@@ -93,14 +92,14 @@ export function getDay(id: number): Day | undefined {
   const slots = loadSlots(id);
   const ingredients = new Map(listIngredients().map((i) => [i.id, i]));
   const lookup = { meal: (mealId: number) => getMeal(mealId), ingredient: (ingredientId: number) => ingredients.get(ingredientId) };
-  const versions = db.prepare("SELECT id, day_id, kind, goal, status FROM day_versions WHERE day_id = ? ORDER BY id").all(id) as Row[];
+  const versions = db.prepare("SELECT id, day_id, goal, status FROM day_versions WHERE day_id = ? ORDER BY id").all(id) as Row[];
   return {
     ...day,
     slots,
     versions: versions.map((v) => {
       const adjustments = loadAdjustments(v.id as number);
       return {
-        id: v.id as number, dayId: v.day_id as number, kind: v.kind as DayKind, goal: v.goal as Goal, status: v.status as Status,
+        id: v.id as number, dayId: v.day_id as number, goal: v.goal as Goal, status: v.status as Status,
         adjustments, slots: resolveVersion(slots, adjustments, lookup),
       };
     }),
@@ -134,10 +133,10 @@ export function listTargets(goal: Goal): Record<string, Target> {
   const db = getDb();
   const out: Record<string, Target> = {};
   for (const r of db.prepare("SELECT * FROM targets").all() as Row[]) {
-    out[r.nutrient as string] = { workout: r.workout as number | null, rest: r.rest as number | null, daily: r.daily as number | null, type: r.type as Target["type"] };
+    out[r.nutrient as string] = { daily: r.daily as number | null, type: r.type as Target["type"] };
   }
   for (const r of db.prepare("SELECT * FROM goal_targets WHERE goal = ?").all(goal) as Row[]) {
-    out[r.nutrient as string] = { workout: r.workout as number, rest: r.rest as number, daily: null, type: null };
+    out[r.nutrient as string] = { daily: r.daily as number, type: null };
   }
   return out;
 }
@@ -145,13 +144,13 @@ export function listTargets(goal: Goal): Record<string, Target> {
 // Recomputes the calories and macro targets for every goal from the profile.
 export function saveGoalTargets(profile: Profile) {
   const set = getDb().prepare(
-    "INSERT INTO goal_targets (goal, nutrient, workout, rest) VALUES (?, ?, ?, ?) ON CONFLICT(goal, nutrient) DO UPDATE SET workout = excluded.workout, rest = excluded.rest",
+    "INSERT INTO goal_targets (goal, nutrient, daily) VALUES (?, ?, ?) ON CONFLICT(goal, nutrient) DO UPDATE SET daily = excluded.daily",
   );
-  for (const r of goalTargetRows(profile)) set.run(r.goal, r.nutrient, r.workout, r.rest);
+  for (const r of goalTargetRows(profile)) set.run(r.goal, r.nutrient, r.daily);
 }
 
-export function versionExists(dayId: number, kind: DayKind, goal: Goal): boolean {
-  return !!getDb().prepare("SELECT 1 FROM day_versions WHERE day_id = ? AND kind = ? AND goal = ?").get(dayId, kind, goal);
+export function versionExists(dayId: number, goal: Goal): boolean {
+  return !!getDb().prepare("SELECT 1 FROM day_versions WHERE day_id = ? AND goal = ?").get(dayId, goal);
 }
 
 // Copies one version's adjustments onto another, so a new version starts out like an existing one.
@@ -163,20 +162,20 @@ function copyAdjustments(from: number, to: number) {
 }
 
 // No transaction of its own: callers that already hold one use this.
-export function insertVersion(dayId: number, kind: DayKind, goal: Goal, status: Status, copyFrom?: number): number {
-  const id = Number(getDb().prepare("INSERT INTO day_versions (day_id, kind, goal, status) VALUES (?, ?, ?, ?)").run(dayId, kind, goal, status).lastInsertRowid);
+export function insertVersion(dayId: number, goal: Goal, status: Status, copyFrom?: number): number {
+  const id = Number(getDb().prepare("INSERT INTO day_versions (day_id, goal, status) VALUES (?, ?, ?)").run(dayId, goal, status).lastInsertRowid);
   if (copyFrom !== undefined) copyAdjustments(copyFrom, id);
   return id;
 }
 
 // Adds a version to a day, optionally starting from another version's adjustments. An existing version is returned untouched.
-export function createVersion(dayId: number, kind: DayKind, goal: Goal, opts: { status?: Status; copyFrom?: number } = {}): number {
+export function createVersion(dayId: number, goal: Goal, opts: { status?: Status; copyFrom?: number } = {}): number {
   const db = getDb();
-  const existing = db.prepare("SELECT id FROM day_versions WHERE day_id = ? AND kind = ? AND goal = ?").get(dayId, kind, goal) as { id: number } | undefined;
+  const existing = db.prepare("SELECT id FROM day_versions WHERE day_id = ? AND goal = ?").get(dayId, goal) as { id: number } | undefined;
   if (existing) return existing.id;
   db.exec("BEGIN");
   try {
-    const id = insertVersion(dayId, kind, goal, opts.status ?? "approved", opts.copyFrom);
+    const id = insertVersion(dayId, goal, opts.status ?? "approved", opts.copyFrom);
     db.exec("COMMIT");
     return id;
   } catch (e) {

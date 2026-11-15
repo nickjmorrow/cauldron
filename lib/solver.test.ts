@@ -70,6 +70,14 @@ test("a slot is never left empty", () => {
   }
 });
 
+test("a suggestion never drops a meal, so every variation stays", () => {
+  // Dropping the planned chicken would make the bigger salmon variation the one eaten, which tempts a solver short of calories.
+  const options = [OPTIONS[0], OPTIONS[1], option(21, 2, false, { calories: 900, protein: 38 })];
+  const r = solve(input({ options, pool: [bean], goals: [goal({ key: "calories", target: 2000, weight: 4 })] }));
+  assert.deepEqual(r.adjustments.filter((a) => a.kind === "remove"), []);
+  assert.ok(r.after.calories! > r.before.calories!, "it still adds food");
+});
+
 test("the same input always gives the same answer and the input is not changed", () => {
   const i = input({ pool: [bean], goals: [goal({ key: "fiber", target: 28, type: "at_least" }), goal({ key: "calories", target: 1500, weight: 4 })] });
   const copy = JSON.stringify(i);

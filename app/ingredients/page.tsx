@@ -1,6 +1,6 @@
 import { listIngredients } from "../../lib/queries.ts";
 import { NUTRIENTS } from "../../lib/nutrients.ts";
-import { setDairy, deleteIngredient, renameIngredient } from "../actions.ts";
+import { deleteIngredient, renameIngredient } from "../actions.ts";
 import { RenameLabel } from "../rename.tsx";
 
 const SHOWN = NUTRIENTS.filter((n) => ["calories", "protein", "carbs", "fiber", "fat", "sodium"].includes(n.key));
@@ -25,11 +25,10 @@ export default async function Ingredients({ searchParams }: { searchParams: Prom
               {all.map((i) => (
                 <tr key={i.id} className={i.status}>
                   <td><RenameLabel id={i.id} name={i.name} action={renameIngredient} after={<>
-                    {i.status === "proposed" && <span className="badge proposed">proposed</span>}{i.contains_dairy && <span className="badge dairy">dairy</span>}</>} /></td>
+                    {i.status === "proposed" && <span className="badge proposed">proposed</span>}</>} /></td>
                   <td className="muted">{i.serving}</td>
                   {SHOWN.map((n) => <td key={n.key} className="num">{i.nutrients[n.key] === undefined ? "–" : Math.round(i.nutrients[n.key]! * 10) / 10}</td>)}
                   <td className="num" style={{ whiteSpace: "nowrap" }}>
-                    <form className="inline" action={setDairy.bind(null, i.id, !i.contains_dairy)}><button className="link">{i.contains_dairy ? "not dairy" : "mark dairy"}</button></form>
                     <form className="inline" action={deleteIngredient.bind(null, i.id)}><button className="link danger">delete</button></form>
                   </td>
                 </tr>

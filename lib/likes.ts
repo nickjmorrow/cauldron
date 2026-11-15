@@ -13,9 +13,8 @@ export function listLikes(): Like[] {
 // Returns why a food can't be liked, or null when saved. Liking something already approved keeps it approved.
 export function likeFood(ingredientId: number, slotName: string, status: "proposed" | "approved" = "approved"): string | null {
   const db = getDb();
-  const food = db.prepare("SELECT name, status, contains_dairy FROM ingredients WHERE id = ?").get(ingredientId) as { name: string; status: string; contains_dairy: number } | undefined;
+  const food = db.prepare("SELECT name, status FROM ingredients WHERE id = ?").get(ingredientId) as { name: string; status: string } | undefined;
   if (!food) return "That isn't a known food.";
-  if (food.contains_dairy) return `${food.name} contains dairy, and you're dairy-free, so it isn't offered in suggestions.`;
   if (food.status !== "approved") return `${food.name} isn't approved yet; approve it on the Review page first.`;
   db.prepare("INSERT INTO liked_foods (ingredient_id, slot_name, status) VALUES (?, ?, ?) ON CONFLICT (ingredient_id, slot_name) DO NOTHING").run(ingredientId, slotName, status);
   return null;

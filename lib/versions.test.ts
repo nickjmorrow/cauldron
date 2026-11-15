@@ -1,29 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseVersionKey, nearestVersion, versionLabel } from "./versions.ts";
+import { nearestVersion, parseVersionKey, versionLabel } from "./versions.ts";
 
-test("junk or missing URL parameters fall back to maintain and rest", () => {
-  assert.deepEqual(parseVersionKey({ goal: "junk", kind: "nope" }), { goal: "maintain", kind: "rest" });
-  assert.deepEqual(parseVersionKey({}), { goal: "maintain", kind: "rest" });
+test("a junk or missing goal falls back to bulk", () => {
+  assert.deepEqual(parseVersionKey({ goal: "junk" }), { goal: "bulk" });
+  assert.deepEqual(parseVersionKey({}), { goal: "bulk" });
+  assert.deepEqual(parseVersionKey({ goal: "maintain" }), { goal: "bulk" }); // maintain is gone
 });
 
-test("valid URL parameters are kept, each on its own", () => {
-  assert.deepEqual(parseVersionKey({ goal: "bulk", kind: "workout" }), { goal: "bulk", kind: "workout" });
-  assert.deepEqual(parseVersionKey({ goal: "cut" }), { goal: "cut", kind: "rest" });
+test("a valid goal is kept", () => {
+  assert.deepEqual(parseVersionKey({ goal: "cut" }), { goal: "cut" });
 });
 
-test("nearestVersion prefers the exact match, then the same goal, then the same kind", () => {
-  const cutWorkout = { kind: "workout", goal: "cut" } as const;
-  const bulkRest = { kind: "rest", goal: "bulk" } as const;
-  const versions = [cutWorkout, bulkRest];
-  assert.equal(nearestVersion(versions), bulkRest); // default is maintain, rest: same kind wins
-  assert.equal(nearestVersion(versions, { kind: "workout", goal: "cut" }), cutWorkout);
-  assert.equal(nearestVersion(versions, { kind: "workout", goal: "bulk" }), bulkRest); // same goal beats same kind
-  assert.equal(nearestVersion(versions, { kind: "rest", goal: "cut" }), cutWorkout);
-  assert.equal(nearestVersion([], { kind: "rest", goal: "cut" }), undefined);
+test("nearestVersion prefers the asked goal, then the first version", () => {
+  const cut = { goal: "cut" } as const;
+  const bulk = { goal: "bulk" } as const;
+  assert.equal(nearestVersion([cut, bulk]), bulk); // the default is bulk
+  assert.equal(nearestVersion([cut, bulk], { goal: "cut" }), cut);
+  assert.equal(nearestVersion([cut], { goal: "bulk" }), cut);
+  assert.equal(nearestVersion([], { goal: "cut" }), undefined);
 });
 
-test("a version reads as its goal then its kind", () => {
-  assert.equal(versionLabel({ goal: "maintain", kind: "rest" }), "Maintain · Rest");
-  assert.equal(versionLabel({ goal: "bulk", kind: "workout" }), "Bulk · Workout");
+test("a version reads as its goal", () => {
+  assert.equal(versionLabel({ goal: "bulk" }), "Bulk");
 });

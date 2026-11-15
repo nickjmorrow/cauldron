@@ -31,30 +31,34 @@ test("macro calculator: refuses fewer than 1200 calories", () => {
   assert.throws(() => macroTargets({ calories: 1199, workoutDays: 4, composition: "build" }), /1200/);
 });
 
-test("plan: cut, maintain and bulk shift calories by 500 and cut uses the fat-loss split", () => {
+test("plan: cut and bulk shift calories by 500 from maintenance", () => {
   const profile = { ...man, workoutDays: 4 } as const;
-  assert.equal(planTargets(profile, "maintain").averageCalories, 2633);
+  assert.equal(planTargets(profile, "cut").maintain, 2633);
   assert.equal(planTargets(profile, "cut").averageCalories, 2133);
   assert.equal(planTargets(profile, "bulk").averageCalories, 3133);
-  // Fat-loss split gives workout-day carbs 52%, build/maintain 56%.
-  const cut = planTargets(profile, "cut");
-  assert.equal(cut.macros.workout.carbs.kcal, Math.round(0.52 * cut.macros.workout.calories));
-  const bulk = planTargets(profile, "bulk");
-  assert.equal(bulk.macros.workout.carbs.kcal, Math.round(0.56 * bulk.macros.workout.calories));
+});
+
+test("plan: the daily target is the week's workout and rest days averaged, so every day eats the same", () => {
+  const profile = { ...man, workoutDays: 4 } as const;
+  const { daily } = planTargets(profile, "bulk");
+  const { workout, rest } = macroTargets({ calories: 3133, workoutDays: 4, composition: "build" });
+  assert.equal(daily.calories, 3133);
+  for (const m of ["carbs", "protein", "fat"] as const) assert.equal(daily[m].g, Math.round((workout[m].g * 4 + rest[m].g * 3) / 7), m);
+  // Cut uses the fat-loss split, which has fewer carbs than the build split.
+  assert.ok(planTargets(profile, "cut").daily.carbs.kcal / 2133 < daily.carbs.kcal / 3133);
 });
 
 test("activity level comes from workout days", () => {
   assert.deepEqual([1, 3, 4, 5, 6, 7].map(activityForWorkoutDays), ["light", "light", "moderate", "moderate", "heavy", "heavy"]);
 });
 
-test("goalTargetRows gives calories and macros for every goal on workout and rest days", () => {
-  const rows = goalTargetRows({ ...man, workoutDays: 4 });
-  assert.equal(rows.length, 12); // 3 goals x (calories, carbs, protein, fat)
+test("goalTargetRows gives the daily calories and macros for cut and bulk", () => {
+  const profile = { ...man, workoutDays: 4 } as const;
+  const rows = goalTargetRows(profile);
+  assert.equal(rows.length, 8); // 2 goals x (calories, carbs, protein, fat)
   const find = (goal: string, nutrient: string) => rows.find((r) => r.goal === goal && r.nutrient === nutrient)!;
-  assert.deepEqual(find("maintain", "calories"), { goal: "maintain", nutrient: "calories", workout: 2830, rest: 2370 });
-  assert.deepEqual(find("maintain", "carbs"), { goal: "maintain", nutrient: "carbs", workout: 396, rest: 308 });
-  assert.equal(find("cut", "calories").workout, planTargets({ ...man, workoutDays: 4 }, "cut").macros.workout.calories);
-  assert.ok(find("bulk", "calories").workout > find("maintain", "calories").workout);
+  assert.deepEqual(find("bulk", "calories"), { goal: "bulk", nutrient: "calories", daily: 3133 });
+  assert.equal(find("cut", "protein").daily, planTargets(profile, "cut").daily.protein.g);
 });
 
 test("imperial inputs convert to metric", () => {

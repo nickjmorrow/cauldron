@@ -1,14 +1,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getDb } from "./db.ts";
-import { looksDairy } from "./compute.ts";
 import { searchUsda } from "./usda.ts";
 import { dayIngredients, getDay, getOnlyDay, listIngredients, listLocations, listMeals, listPlacements, STUB_SERVING } from "./queries.ts";
 import { likeFood, validLikes, type LikesDraft } from "./likes.ts";
 import { validPlacements, type PlacementDraft } from "./placements.ts";
 
 const run = promisify(execFile);
-const SYSTEM = "You output only a single JSON object, no prose, no code fences. All food suggestions must be dairy-free (no milk, cheese, butter, cream, yogurt, whey, casein, ghee).";
+const SYSTEM = "You output only a single JSON object, no prose, no code fences.";
 
 async function askJson<T>(prompt: string): Promise<T> {
   const { stdout } = await run(
@@ -28,17 +27,17 @@ export type ProposalResult = { added: string[]; skipped: string[] };
 // Ask for generic ingredient search terms, look each up in USDA, store the best hit as proposed.
 export async function proposeIngredients(request: string): Promise<ProposalResult> {
   const { queries } = await askJson<{ queries: string[] }>(
-    `The user wants ingredient ideas: "${request}". Return {"queries": [...]} with up to 6 USDA FoodData Central search terms for specific, generic, dairy-free ingredients (cooked or raw as typically eaten), e.g. "salmon atlantic cooked".`,
+    `The user wants ingredient ideas: "${request}". Return {"queries": [...]} with up to 6 USDA FoodData Central search terms for specific, generic ingredients (cooked or raw as typically eaten), e.g. "salmon atlantic cooked".`,
   );
   const db = getDb();
   const insert = db.prepare(
-    `INSERT INTO ingredients (name, serving, source, fdc_id, contains_dairy, status, nutrients)
-     VALUES (?, '100 g', ?, ?, 0, 'proposed', ?)`,
+    `INSERT INTO ingredients (name, serving, source, fdc_id, status, nutrients)
+     VALUES (?, '100 g', ?, ?, 'proposed', ?)`,
   );
   const result: ProposalResult = { added: [], skipped: [] };
   for (const query of queries.slice(0, 6)) {
-    const hit = (await searchUsda(query, 3)).find((c) => !c.contains_dairy);
-    if (!hit) { result.skipped.push(`${query} (no dairy-free match)`); continue; }
+    const hit = (await searchUsda(query, 3))[0];
+    if (!hit) { result.skipped.push(`${query} (no match)`); continue; }
     const exists = db.prepare("SELECT 1 FROM ingredients WHERE name = ? OR fdc_id = ?").get(hit.name, hit.fdcId);
     if (exists) { result.skipped.push(`${hit.name} (already have it)`); continue; }
     insert.run(hit.name, `USDA FoodData Central (FDC ID ${hit.fdcId}); per 100 g`, hit.fdcId, JSON.stringify(hit.nutrients));
@@ -49,9 +48,9 @@ export async function proposeIngredients(request: string): Promise<ProposalResul
 
 type MealDraft = { name: string; slot?: string; notes?: string; items: { ingredient: string; qty: number }[] };
 
-// Meals may only use approved, dairy-free ingredients, so every proposed meal has real numbers.
+// Meals may only use approved ingredients, so every proposed meal has real numbers.
 export async function proposeMeal(request: string): Promise<ProposalResult> {
-  const usable = listIngredients("approved").filter((i) => !i.contains_dairy && i.serving !== "1 meal");
+  const usable = listIngredients("approved").filter((i) => i.serving !== "1 meal");
   const draft = await askJson<MealDraft>(
     `Design one meal for: "${request}". Use ONLY these ingredients (name | serving; qty is a number of servings):\n${usable.map((i) => `${i.name} | ${i.serving}`).join("\n")}\n` +
       `Return {"name": string, "slot": "Breakfast|Lunch|Dinner|Snack", "notes": "short how-to", "items": [{"ingredient": exact name, "qty": number}]}.`,
@@ -69,11 +68,11 @@ export async function proposeMeal(request: string): Promise<ProposalResult> {
 }
 
 // Turns "I eat eggs and toast for breakfast, rice bowls for lunch" into liked foods per meal, as proposals to approve.
-// The AI only maps words to foods you already have; it does no arithmetic and adds nothing that isn't approved and dairy-free.
+// The AI only maps words to foods you already have; it does no arithmetic and adds nothing that isn't approved.
 export async function proposeLikes(text: string): Promise<ProposalResult> {
   const slotNames = getOnlyDay().slots.map((s) => s.name);
   if (!slotNames.length) throw new Error("Add some meals to your base day first, so there are meals to attach foods to.");
-  const ingredients = listIngredients("approved").filter((i) => !i.contains_dairy && i.serving !== STUB_SERVING);
+  const ingredients = listIngredients("approved").filter((i) => i.serving !== STUB_SERVING);
   const draft = await askJson<LikesDraft>(
     `The user says what they eat or like: "${text}". Match it to their meals of the day: ${slotNames.map((n) => `"${n}"`).join(", ")}. ` +
       `Use ONLY these foods, with their exact names: ${ingredients.map((i) => i.name).join(" | ")}. ` +
@@ -116,4 +115,3 @@ export async function proposePlacements(dayIds: number[]): Promise<PlacementResu
   return result;
 }
 
-export { looksDairy };

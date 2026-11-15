@@ -11,7 +11,7 @@ const { listTolerances, setTolerance } = await import("./tolerances.ts");
 test.after(() => { for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true }); });
 
 const db = getDb();
-db.prepare("INSERT INTO targets (nutrient, workout, rest, daily, type) VALUES ('protein', 120, 90, NULL, NULL), ('sodium', NULL, NULL, 2300, 'no_more_than'), ('fiber', NULL, NULL, 28, 'at_least')").run();
+db.prepare("INSERT INTO targets (nutrient, daily, type) VALUES ('protein', 105, NULL), ('sodium', 2300, 'no_more_than'), ('fiber', 28, 'at_least')").run();
 db.prepare("INSERT INTO profile (id, age, sex, height_cm, weight_kg, workout_days) VALUES (1, 40, 'male', 175, 80, 4)").run();
 
 test("a nutrient can be marked okay to exceed, with an optional limit, and turned off again", () => {

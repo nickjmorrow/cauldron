@@ -3,7 +3,6 @@
 import ExcelJS from "exceljs";
 import { getDb } from "../lib/db.ts";
 import { NUTRIENTS, type Nutrients } from "../lib/nutrients.ts";
-import { looksDairy } from "../lib/compute.ts";
 
 const XLSX_PATH = process.argv[2] ?? process.env.CAULDRON_XLSX ?? "data/diet.xlsx";
 const FDC_ID = /FDC ID (\d+)/;
@@ -30,10 +29,10 @@ db.exec("BEGIN");
 // Foods: header row 4, nutrients in columns 4.. in NUTRIENTS order.
 const foods = wb.getWorksheet("Foods")!;
 const insertIngredient = db.prepare(
-  `INSERT INTO ingredients (name, serving, source, fdc_id, notes, contains_dairy, status, nutrients)
-   VALUES (?, ?, ?, ?, ?, ?, 'approved', ?)
+  `INSERT INTO ingredients (name, serving, source, fdc_id, notes, status, nutrients)
+   VALUES (?, ?, ?, ?, ?, 'approved', ?)
    ON CONFLICT(name) DO UPDATE SET serving=excluded.serving, source=excluded.source, fdc_id=excluded.fdc_id,
-     notes=excluded.notes, contains_dairy=excluded.contains_dairy, nutrients=excluded.nutrients`,
+     notes=excluded.notes, nutrients=excluded.nutrients`,
 );
 let foodCount = 0;
 for (let r = 5; r <= foods.rowCount; r++) {
@@ -48,7 +47,7 @@ for (let r = 5; r <= foods.rowCount; r++) {
   const source = text(row.getCell(3).value);
   const notes = text(row.getCell(4 + NUTRIENTS.length).value);
   const fdc = FDC_ID.exec(source)?.[1];
-  insertIngredient.run(name, text(row.getCell(2).value), source, fdc ? Number(fdc) : null, notes, looksDairy(name) ? 1 : 0, JSON.stringify(nutrients));
+  insertIngredient.run(name, text(row.getCell(2).value), source, fdc ? Number(fdc) : null, notes, JSON.stringify(nutrients));
   foodCount++;
 }
 
@@ -106,7 +105,7 @@ for (let r = 5; r <= meals.rowCount; r++) {
       if (v !== null) nutrients[key] = v;
     });
     const fixedName = `${name} (fixed totals)`;
-    insertIngredient.run(fixedName, "1 meal", text(row.getCell(3).value), null, "Fixed totals imported from the Meals tab; no ingredient breakdown.", looksDairy(name) ? 1 : 0, JSON.stringify(nutrients));
+    insertIngredient.run(fixedName, "1 meal", text(row.getCell(3).value), null, "Fixed totals imported from the Meals tab; no ingredient breakdown.", JSON.stringify(nutrients));
     insertItem.run(id, (ingredientId.get(fixedName) as { id: number }).id, 1);
   }
   mealCount++;
@@ -115,7 +114,7 @@ for (let r = 5; r <= meals.rowCount; r++) {
 // Targets from Day Comparison (header row 14: Rest, Workout, Micro target, Type in cols 8-11).
 const dc = wb.getWorksheet("Day Comparison")!;
 const insertTarget = db.prepare(
-  "INSERT OR REPLACE INTO targets (nutrient, workout, rest, daily, type) VALUES (?, ?, ?, ?, ?)",
+  "INSERT OR REPLACE INTO targets (nutrient, daily, type) VALUES (?, ?, ?)",
 );
 for (let r = 15; r <= 42; r++) {
   const label = text(dc.getCell(r, 1).value);
@@ -124,7 +123,9 @@ for (let r = 15; r <= 42; r++) {
   // The sheet files the carb targets on its Net Carbs row, but they are meant for total carbs.
   const key = found === "net_carbs" ? "carbs" : found;
   const type = text(dc.getCell(r, 11).value);
-  insertTarget.run(key, num(dc.getCell(r, 9).value), num(dc.getCell(r, 8).value), num(dc.getCell(r, 10).value),
+  // One target a day: the sheet's daily one, else the middle of its workout and rest targets.
+  const [workout, rest, daily] = [num(dc.getCell(r, 9).value), num(dc.getCell(r, 8).value), num(dc.getCell(r, 10).value)];
+  insertTarget.run(key, daily ?? (workout !== null && rest !== null ? (workout + rest) / 2 : workout ?? rest),
     type === "At least" ? "at_least" : type === "No more than" ? "no_more_than" : null);
 }
 

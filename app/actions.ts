@@ -54,11 +54,6 @@ export async function generateIngredients(_: GenerateState, f: FormData) { retur
 export async function generateMeal(_: GenerateState, f: FormData) { return generate(proposeMeal, f); }
 export async function generateLikes(_: GenerateState, f: FormData) { return generate(proposeLikes, f); }
 
-export async function setDairy(id: number, value: boolean) {
-  getDb().prepare("UPDATE ingredients SET contains_dairy = ? WHERE id = ?").run(value ? 1 : 0, id);
-  refresh();
-}
-
 export async function deleteIngredient(id: number) {
   const db = getDb();
   if (db.prepare("SELECT 1 FROM meal_items WHERE ingredient_id = ?").get(id)) return; // still used by a meal
@@ -89,38 +84,38 @@ export async function deleteMeal(id: number) {
   refresh();
 }
 
-// A version is the base day plus adjustments. The page names a version by goal and kind; it is created the first time it is changed.
+// A version is the base day plus adjustments. The page names a version by goal; it is created the first time it is changed.
 const versionOf = (f: FormData) => {
-  const { kind, goal } = parseVersionKey({ kind: str(f, "kind"), goal: str(f, "goal") });
-  return createVersion(getOnlyDay().id, kind, goal);
+  const { goal } = parseVersionKey({ goal: str(f, "goal") });
+  return createVersion(getOnlyDay().id, goal);
 };
 
 // Runs a change to a version. A stale page or a bad form value shows up as a message on the page instead of an error screen.
 function change(f: FormData, run: (versionId: number) => void) {
-  const { kind, goal } = parseVersionKey({ kind: str(f, "kind"), goal: str(f, "goal") });
+  const { goal } = parseVersionKey({ goal: str(f, "goal") });
   let error: string | undefined;
-  try { run(createVersion(getOnlyDay().id, kind, goal)); } catch (e) { error = (e as Error).message; }
+  try { run(createVersion(getOnlyDay().id, goal)); } catch (e) { error = (e as Error).message; }
   refresh();
-  if (error) redirect(`/days/${getOnlyDay().id}?goal=${goal}&kind=${kind}&error=${encodeURIComponent(error)}`);
+  if (error) redirect(`/days/${getOnlyDay().id}?goal=${goal}&error=${encodeURIComponent(error)}`);
 }
 
-const backTo = (goal: string, kind: string, extra: string) => `/days/${getOnlyDay().id}?goal=${goal}&kind=${kind}&${extra}`;
+const backTo = (goal: string, extra: string) => `/days/${getOnlyDay().id}?goal=${goal}&${extra}`;
 
 // Ask for a fix: focused on one nutrient when the form names one, otherwise for everything. It waits on Review.
 export async function proposeFix(f: FormData) {
-  const { kind, goal } = parseVersionKey({ kind: str(f, "kind"), goal: str(f, "goal") });
+  const { goal } = parseVersionKey({ goal: str(f, "goal") });
   const nutrient = NUTRIENTS.find((n) => n.key === str(f, "nutrient"))?.key;
-  const id = createFixProposal(createVersion(getOnlyDay().id, kind, goal), nutrient ? [nutrient] : null);
+  const id = createFixProposal(createVersion(getOnlyDay().id, goal), nutrient ? [nutrient] : null);
   refresh();
-  redirect(id ? "/review" : backTo(goal, kind, "notice=nochange"));
+  redirect(id ? "/review" : backTo(goal, "notice=nochange"));
 }
 
 // Refit every other version, starting from this one's changes.
 export async function proposeForAll(f: FormData) {
-  const { kind, goal } = parseVersionKey({ kind: str(f, "kind"), goal: str(f, "goal") });
-  const ids = createMatchAllProposals(createVersion(getOnlyDay().id, kind, goal));
+  const { goal } = parseVersionKey({ goal: str(f, "goal") });
+  const ids = createMatchAllProposals(createVersion(getOnlyDay().id, goal));
   refresh();
-  redirect(ids.length ? "/review" : backTo(goal, kind, "notice=nochange"));
+  redirect(ids.length ? "/review" : backTo(goal, "notice=nochange"));
 }
 
 // One suggestion per version that can be improved, from the base day and your liked foods.
@@ -139,11 +134,11 @@ export async function dismissSuggestion(id: number) { dismissProposal(id); refre
 
 // "It's okay to exceed this", from the number's popover; the guardrails decide whether that is allowed.
 export async function allowExceed(f: FormData) {
-  const { kind, goal } = parseVersionKey({ kind: str(f, "kind"), goal: str(f, "goal") });
+  const { goal } = parseVersionKey({ goal: str(f, "goal") });
   const key = NUTRIENTS.find((n) => n.key === str(f, "nutrient"))?.key;
   const error = key ? setTolerance(key, true, null) : "That nutrient isn't known.";
   refresh();
-  redirect(backTo(goal, kind, error ? `error=${encodeURIComponent(error)}` : "notice=allowed"));
+  redirect(backTo(goal, error ? `error=${encodeURIComponent(error)}` : "notice=allowed"));
 }
 
 // The Targets page form: a checkbox and an optional limit per nutrient.

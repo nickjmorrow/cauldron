@@ -1,8 +1,9 @@
 import type { Nutrients, NutrientKey } from "./nutrients.ts";
 import type { Adjustment } from "./resolve.ts";
 
-// Fits a version to its targets by adding foods, resizing meals and dropping meals. Pure and deterministic:
-// the same input always gives the same answer. The user's own drops and planned choices are never undone.
+// Fits a version to its targets by adding foods and resizing meals. Pure and deterministic:
+// the same input always gives the same answer. It never drops a meal (the person keeps every variation),
+// and the user's own drops and planned choices are never undone.
 export type SolverOption = { optionId: number; slotId: number; part: number; planned: boolean; nutrients: Nutrients }; // base meal at a full portion
 export type PoolFood = { ingredientId: number; name: string; nutrients: Nutrients; slotIds: number[]; maxQty?: number }; // nutrients per serving; maxQty caps how much may be added
 export type Goal = {
@@ -98,12 +99,11 @@ function goalLoss(g: Goal, total: number): number {
   return g.weight * loss;
 }
 
-// Small costs keep the answer simple: fewer added foods, smaller resizes, fewer drops. They sit below the loss of a 5% miss, so real misses still get fixed.
-function changeCost(state: State, lockedRemoved: Set<number>): number {
+// Small costs keep the answer simple: fewer added foods, smaller resizes. They sit below the loss of a 5% miss, so real misses still get fixed.
+function changeCost(state: State): number {
   let cost = 0;
   for (const a of state.adds) cost += 0.008 + 0.001 * a.qty;
   for (const f of state.scale.values()) cost += (Math.abs(f - 1) / STEP) * 0.002;
-  for (const id of state.removed) if (!lockedRemoved.has(id)) cost += 0.01;
   return cost;
 }
 
@@ -113,9 +113,7 @@ export function solve(input: SolveInput): SolveResult {
   const { goals } = input;
   const model: Model = { options: input.options, mealNutrients: input.mealNutrients, pool: input.pool, ingredientNutrients: input.ingredientNutrients };
   const start = stateOf(input.start);
-  const lockedRemoved = new Set(start.removed);
   const groups = groupsOf(input.options);
-  const slotOptions = (slotId: number) => input.options.filter((o) => o.slotId === slotId);
   const pool = [...input.pool].sort((a, b) => a.ingredientId - b.ingredientId);
   const options = [...input.options].sort((a, b) => a.optionId - b.optionId);
 
@@ -123,7 +121,7 @@ export function solve(input: SolveInput): SolveResult {
   const activeSlots = (s: State) => new Set(input.options.filter((o) => !s.removed.has(o.optionId)).map((o) => o.slotId));
   const loss = (s: State) => {
     const totals = totalsOfState(model, s);
-    return goals.reduce((sum, g) => sum + goalLoss(g, totals[g.key] ?? 0), 0) + changeCost(s, lockedRemoved);
+    return goals.reduce((sum, g) => sum + goalLoss(g, totals[g.key] ?? 0), 0) + changeCost(s);
   };
 
   const moves = (state: State): Move[] => {
@@ -155,22 +153,13 @@ export function solve(input: SolveInput): SolveResult {
       });
     }
     for (const o of options) {
-      if (lockedRemoved.has(o.optionId) || state.removed.has(o.optionId)) continue;
+      if (state.removed.has(o.optionId)) continue;
       const factor = state.scale.get(o.optionId) ?? 1;
       for (const next of [factor - STEP, factor + STEP]) {
         if (next < SCALE_MIN - EPSILON || next > SCALE_MAX + EPSILON) continue;
         list.push((s) => {
           const out = clone(s);
           if (Math.abs(next - 1) < EPSILON) out.scale.delete(o.optionId); else out.scale.set(o.optionId, next);
-          return out;
-        });
-      }
-      const others = slotOptions(o.slotId).filter((x) => x.optionId !== o.optionId && !state.removed.has(x.optionId));
-      if (others.length > 0) {
-        list.push((s) => {
-          const out = clone(s);
-          out.removed.add(o.optionId);
-          out.scale.delete(o.optionId);
           return out;
         });
       }

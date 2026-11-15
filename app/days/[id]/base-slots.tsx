@@ -36,7 +36,6 @@ export function BaseSlots({ slots, mealOptions }: { slots: Slot[]; mealOptions: 
                       <span className={`planned-dot${o.isPlanned ? "" : " off"}`} title={o.isPlanned ? "Planned" : undefined} />
                       <span className="grow">
                         {o.meal.name}{o.meal.status === "proposed" && <span className="badge proposed">proposed</span>}
-                        {o.meal.items.some((i) => i.ingredient.contains_dairy) && <span className="badge dairy">dairy</span>}
                         <span className="muted block">{Math.round(o.meal.totals.calories ?? 0)} kcal · {Math.round(o.meal.totals.protein ?? 0)} g protein</span>
                       </span>
                       <span className="acts">

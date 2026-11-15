@@ -15,8 +15,7 @@ export default function Meals() {
             {meals.map((m) => (
               <tr key={m.id} className={m.status}>
                 <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
-                  {m.status === "proposed" && <span className="badge proposed">proposed</span>}
-                  {m.items.some((i) => i.ingredient.contains_dairy) && <span className="badge dairy">dairy</span>}</td>
+                  {m.status === "proposed" && <span className="badge proposed">proposed</span>}</td>
                 <td className="muted">{m.typical_slot}</td>
                 {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{Math.round(m.totals[k] ?? 0)}</td>)}
               </tr>

@@ -2,19 +2,18 @@
 
 <img src="app/icon.svg" width="72" align="right" alt="">
 
-A local-first meal planner for people who eat roughly the same day most days and want it to hit their nutrient targets on training days, rest days, and while cutting, maintaining or bulking.
+A local-first meal planner for people who eat roughly the same day most days and want it to hit their nutrient targets while cutting or bulking.
 
-You describe one **base day** (the meals you usually eat, with variations), and Cauldron keeps six **versions** of it (workout/rest x cut/maintain/bulk). Each version is the base day plus a few changes: drop a meal, resize it, add a food. Cauldron totals every nutrient against that version's targets and suggests the smallest set of changes that closes the gaps.
+You describe one **base day** (the meals you usually eat, with variations), and Cauldron keeps a **version** of it for each goal (cut and bulk), each with one daily target. Each version is the base day plus a few changes: drop a meal, resize it, add a food. Cauldron totals every nutrient against that version's targets and suggests the smallest set of changes that closes the gaps.
 
 ## What it does
 
-- **Day planner**: each version is drawn as blocks over the base day's dashed outline (block height is calories); click a block to resize, drop or add. An overview shows all six versions side by side.
+- **Day planner**: each version is drawn as blocks over the base day's dashed outline (block height is calories); click a meal to see its ingredients, resize it or drop it, or add a food. An overview shows the versions side by side.
 - **Nutrient tracking**: totals for 28 nutrients (macros, fats, fiber, vitamins, minerals, caffeine) against targets, with the range a day can swing across its meal variations. Hover any number to see which meals contribute most.
 - **Suggested fixes**: a deterministic solver fits a version to its targets by adding liked foods, shrinking meals or dropping them. It never undoes your own choices, respects per-nutrient tolerances, and is capped by hard upper limits (vitamins A, C, D and E, iron, zinc, calcium, caffeine, protein per kg of body weight) that no suggestion can exceed.
 - **Targets**: calorie and macro targets for all three goals from your profile, plus which nutrients may run over and by how much.
 - **AI proposals with review**: describe what you want in words and the `claude` CLI maps it to ingredient searches, meals, liked foods or kitchen placements. Ingredient nutrients come from USDA FoodData Central. Everything lands as *proposed* and counts only after you approve it on the Review page.
 - **Kitchen**: name the places food lives (pantry, fridge shelves, freezer) and see where each ingredient is kept.
-- **Dairy-free by default**: dairy ingredients are detected and flagged, and neither the solver nor the AI ever suggests them.
 
 ## How it works
 

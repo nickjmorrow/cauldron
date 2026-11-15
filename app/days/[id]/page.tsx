@@ -15,7 +15,7 @@ import { canTolerate } from "../../../lib/guardrails.ts";
 import { listTolerances } from "../../../lib/tolerances.ts";
 import { NUTRIENTS } from "../../../lib/nutrients.ts";
 
-type Query = { goal?: string; kind?: string; view?: string; notice?: string; error?: string };
+type Query = { goal?: string; view?: string; notice?: string; error?: string };
 
 const NOTICES: Record<string, string> = {
   nochange: "Nothing to change: this version already fits as well as your foods allow.",
@@ -32,7 +32,7 @@ export default async function DayPage({ params, searchParams }: { params: Promis
   const message = query.error ?? (query.notice ? NOTICES[query.notice] : undefined);
 
   if (query.view === "base") {
-    const likeOptions = listIngredients("approved").filter((i) => !i.contains_dairy).map((i) => ({ value: String(i.id), label: i.name, hint: i.serving }));
+    const likeOptions = listIngredients("approved").map((i) => ({ value: String(i.id), label: i.name, hint: i.serving }));
     return (
       <>
         <h1>Day<span className="badge" style={{ verticalAlign: 8 }}>Base day</span></h1>
@@ -55,15 +55,15 @@ export default async function DayPage({ params, searchParams }: { params: Promis
       <>
         <h1>Day<span className="badge" style={{ verticalAlign: 8 }}>Overview</span></h1>
         <VersionToggles dayId={day.id} versions={day.versions} current="overview" />
-        <p className="lede">Your base day in all six versions on one scale. The dashed outline is the base day; open a version to change it.</p>
+        <p className="lede">Your base day in each version on one scale. The dashed outline is the base day; open a version to change it.</p>
         {message && <p className={`notice-line${query.error ? " error" : ""}`} role="status">{message}</p>}
         <Overview day={day} calories={calories} />
       </>
     );
   }
-  const asked = GOALS.some((g) => g.value === query.goal) || query.kind === "workout" || query.kind === "rest";
+  const asked = GOALS.some((g) => g.value === query.goal);
   const want = asked ? parseVersionKey(query) : (nearestVersion(day.versions) ?? parseVersionKey({}));
-  const version = day.versions.find((v) => v.kind === want.kind && v.goal === want.goal);
+  const version = day.versions.find((v) => v.goal === want.goal);
   const foodOptions = [
     ...listIngredients("approved").map((i) => ({ value: `i:${i.id}`, label: i.name, hint: i.serving })),
     ...meals.map((m) => ({ value: `m:${m.id}`, label: `Meal: ${m.name}`, hint: `${Math.round(m.totals.calories ?? 0)} kcal` })),
@@ -76,12 +76,12 @@ export default async function DayPage({ params, searchParams }: { params: Promis
     <>
       <h1>Day<span className="badge" style={{ verticalAlign: 8 }}>{versionLabel(want)}</span></h1>
       <VersionToggles dayId={day.id} versions={day.versions} current={want} />
-      <p className="lede">Your base day with this version's changes, compared with your {want.goal} {want.kind}-day targets. Hover a number to see what contributes most to it, and to ask for a fix.</p>
+      <p className="lede">Your base day with this version's changes, compared with your daily {want.goal} targets. Hover a number to see what contributes most to it, and to ask for a fix.</p>
       {message && <p className={`notice-line${query.error ? " error" : ""}`} role="status">{message}</p>}
       <FitBar want={want} />
       <div className="split">
         <VersionSlots base={day.slots} resolved={version?.slots ?? day.slots} adjustments={version?.adjustments ?? []} want={want} foodOptions={foodOptions} />
-        <NutrientTable slots={version?.slots ?? day.slots} targets={targets} kind={want.kind}
+        <NutrientTable slots={version?.slots ?? day.slots} targets={targets} compare
           extra={(key, { over }) => <FixLinks want={want} nutrient={key} label={labelOf(key)} over={over && !tolerances[key]} canAllow={canTolerate(targets[key])} />} />
       </div>
     </>

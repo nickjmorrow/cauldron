@@ -1,5 +1,4 @@
 import { getDb } from "./db.ts";
-import { looksDairy } from "./compute.ts";
 import type { Nutrients, NutrientKey } from "./nutrients.ts";
 
 const API = "https://api.nal.usda.gov/fdc/v1";
@@ -38,7 +37,7 @@ export function mapNutrients(food: FdcFood): Nutrients {
 }
 
 export type Candidate = {
-  fdcId: number; name: string; category: string; contains_dairy: boolean; nutrients: Nutrients;
+  fdcId: number; name: string; category: string; nutrients: Nutrients;
 };
 
 export async function searchUsda(query: string, limit = 5): Promise<Candidate[]> {
@@ -61,7 +60,6 @@ export async function searchUsda(query: string, limit = 5): Promise<Candidate[]>
     fdcId: f.fdcId,
     name: f.description,
     category: f.foodCategory ?? "",
-    contains_dairy: looksDairy(f.description, f.foodCategory),
     nutrients: mapNutrients(f),
   }));
 }
