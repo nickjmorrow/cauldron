@@ -6,6 +6,7 @@ import { GOALS, parseProfile, planTargets, type Goal } from "../lib/calculators.
 import { createVersion, getOnlyDay, rejectVersion, saveGoalTargets } from "../lib/queries.ts";
 import { parseVersionKey } from "../lib/versions.ts";
 import { NUTRIENTS } from "../lib/nutrients.ts";
+import { CATEGORIES, isStapleKind } from "../lib/categories.ts";
 import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAllProposals, dismissProposal } from "../lib/fixes.ts";
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
@@ -58,6 +59,25 @@ export async function deleteIngredient(id: number) {
   const db = getDb();
   if (db.prepare("SELECT 1 FROM meal_items WHERE ingredient_id = ?").get(id)) return; // still used by a meal
   db.prepare("DELETE FROM ingredients WHERE id = ?").run(id);
+  refresh();
+}
+
+export async function setIngredientCategory(f: FormData) {
+  const category = str(f, "category");
+  if (!(CATEGORIES as readonly string[]).includes(category)) return;
+  getDb().prepare("UPDATE ingredients SET category = ? WHERE id = ?").run(category, int(f, "ingredient"));
+  refresh();
+}
+
+// Staples
+export async function addStaple(f: FormData) {
+  const name = str(f, "name");
+  const kind = str(f, "kind");
+  if (name && isStapleKind(kind)) getDb().prepare("INSERT OR IGNORE INTO staples (name, kind) VALUES (?, ?)").run(name, kind);
+  refresh();
+}
+export async function deleteStaple(id: number) {
+  getDb().prepare("DELETE FROM staples WHERE id = ?").run(id);
   refresh();
 }
 

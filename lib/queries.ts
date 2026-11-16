@@ -3,13 +3,14 @@ import { mealTotals, dayTotals, type Target } from "./compute.ts";
 import type { Nutrients } from "./nutrients.ts";
 import { goalTargetRows, type Goal, type Profile } from "./calculators.ts";
 import type { VersionKey } from "./versions.ts";
+import type { StapleKind } from "./categories.ts";
 import { chosenOptions, partKey } from "./chosen.ts";
 import { resolveVersion, type Adjustment, type OptionAdjust } from "./resolve.ts";
 
 export type Status = "proposed" | "approved";
 export type Ingredient = {
   id: number; name: string; serving: string; source: string; fdc_id: number | null;
-  notes: string; status: Status; nutrients: Nutrients;
+  notes: string; status: Status; nutrients: Nutrients; category: string;
 };
 export type Meal = { id: number; name: string; typical_slot: string; source: string; notes: string; status: Status };
 export type MealWithTotals = Meal & { totals: Nutrients; items: { ingredient: Ingredient; qty: number }[] };
@@ -29,6 +30,11 @@ export function listIngredients(status?: Status): Ingredient[] {
     ? getDb().prepare("SELECT * FROM ingredients WHERE status = ? ORDER BY name").all(status)
     : getDb().prepare("SELECT * FROM ingredients ORDER BY name").all();
   return rows.map(toIngredient).filter((i) => i.serving !== STUB_SERVING);
+}
+
+export type Staple = { id: number; name: string; kind: StapleKind };
+export function listStaples(): Staple[] {
+  return getDb().prepare("SELECT id, name, kind FROM staples ORDER BY name").all() as unknown as Staple[];
 }
 
 export function getMeal(id: number): MealWithTotals | undefined {

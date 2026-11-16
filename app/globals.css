@@ -106,6 +106,10 @@ form.inline { display: inline-flex; gap: 6px; align-items: center; }
 /* Tables */
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; }
+/* Category tables stacked on one page keep the same column widths so their numbers line up. */
+table.aligned { table-layout: fixed; min-width: 760px; }
+table.aligned th:first-child { width: 32%; }
+table.aligned th:last-child { width: 80px; }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
 tbody tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: color-mix(in oklch, var(--raised) 60%, transparent); }

@@ -135,6 +135,12 @@ CREATE TABLE IF NOT EXISTS ingredient_locations (
   location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
   PRIMARY KEY (ingredient_id, location_id)
 );
+CREATE TABLE IF NOT EXISTS staples (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('spice','baking')),
+  UNIQUE (name, kind)
+);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL
@@ -216,6 +222,7 @@ function migrate(db: DatabaseSync) {
   if (profile.some((c) => c.name === "goal")) db.exec("ALTER TABLE profile DROP COLUMN goal;");
   const ingredients = db.prepare("PRAGMA table_info(ingredients)").all() as { name: string }[];
   if (ingredients.some((c) => c.name === "contains_dairy")) db.exec("ALTER TABLE ingredients DROP COLUMN contains_dairy;");
+  if (!ingredients.some((c) => c.name === "category")) db.exec("ALTER TABLE ingredients ADD COLUMN category TEXT NOT NULL DEFAULT '';");
   const placements = db.prepare("PRAGMA table_info(ingredient_locations)").all() as { name: string }[];
   if (!placements.some((c) => c.name === "status")) {
     db.exec("ALTER TABLE ingredient_locations ADD COLUMN status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('proposed','approved'));");
