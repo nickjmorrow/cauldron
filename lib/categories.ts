@@ -2,7 +2,8 @@
 export const CATEGORIES = [
   "Fruit", "Vegetables", "Frozen vegetables", "Frozen fruit", "Meat & poultry", "Seafood", "Eggs", "Dairy",
   "Beans & legumes", "Grains & bread", "Dips & spreads", "Sauces & condiments", "Pickles & ferments",
-  "Oils & vinegars", "Juices", "Milks", "Shakes & bars", "Prepared meals",
+  "Oils & vinegars", "Spices & seasonings", "Sugars & sweeteners", "Baking", "Juices", "Milks", "Shakes & bars",
+  "Prepared meals",
 ] as const;
 export const UNCATEGORIZED = "Uncategorized";
 
@@ -16,8 +17,3 @@ export function groupByCategory<T extends { category: string }>(items: T[]): { c
     }))
     .filter((g) => g.items.length > 0);
 }
-
-// Kitchen staples kept on hand outside the meal plan.
-export const STAPLE_KINDS = { spice: "Spices", baking: "Baking" } as const;
-export type StapleKind = keyof typeof STAPLE_KINDS;
-export const isStapleKind = (kind: string): kind is StapleKind => Object.hasOwn(STAPLE_KINDS, kind);

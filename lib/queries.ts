@@ -3,7 +3,6 @@ import { mealTotals, dayTotals, type Target } from "./compute.ts";
 import type { Nutrients } from "./nutrients.ts";
 import { goalTargetRows, type Goal, type Profile } from "./calculators.ts";
 import type { VersionKey } from "./versions.ts";
-import type { StapleKind } from "./categories.ts";
 import { chosenOptions, partKey } from "./chosen.ts";
 import { resolveVersion, type Adjustment, type OptionAdjust } from "./resolve.ts";
 
@@ -12,7 +11,7 @@ export type Ingredient = {
   id: number; name: string; serving: string; source: string; fdc_id: number | null;
   notes: string; status: Status; nutrients: Nutrients; category: string;
 };
-export type Meal = { id: number; name: string; typical_slot: string; source: string; notes: string; status: Status };
+export type Meal = { id: number; name: string; typical_slot: string; source: string; notes: string; status: Status; occasional: number };
 export type MealWithTotals = Meal & { totals: Nutrients; items: { ingredient: Ingredient; qty: number }[] };
 
 type Row = Record<string, unknown>;
@@ -30,11 +29,6 @@ export function listIngredients(status?: Status): Ingredient[] {
     ? getDb().prepare("SELECT * FROM ingredients WHERE status = ? ORDER BY name").all(status)
     : getDb().prepare("SELECT * FROM ingredients ORDER BY name").all();
   return rows.map(toIngredient).filter((i) => i.serving !== STUB_SERVING);
-}
-
-export type Staple = { id: number; name: string; kind: StapleKind };
-export function listStaples(): Staple[] {
-  return getDb().prepare("SELECT id, name, kind FROM staples ORDER BY name").all() as unknown as Staple[];
 }
 
 export function getMeal(id: number): MealWithTotals | undefined {
@@ -241,6 +235,14 @@ export function inUse(day: Day): { meals: Set<number>; ingredients: Set<number> 
     }
   }
   return { meals, ingredients };
+}
+
+// Meals marked as cooked occasionally, and every ingredient in them.
+export function occasionalUse(): { meals: Set<number>; ingredients: Set<number> } {
+  const db = getDb();
+  const meals = db.prepare("SELECT id FROM meals WHERE occasional = 1").all() as { id: number }[];
+  const items = db.prepare("SELECT DISTINCT mi.ingredient_id AS id FROM meal_items mi JOIN meals m ON m.id = mi.meal_id WHERE m.occasional = 1").all() as { id: number }[];
+  return { meals: new Set(meals.map((r) => r.id)), ingredients: new Set(items.map((r) => r.id)) };
 }
 
 // Every real ingredient in the base day or added to an approved version, variations included.

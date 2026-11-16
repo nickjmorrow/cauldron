@@ -6,7 +6,7 @@ import { GOALS, parseProfile, planTargets, type Goal } from "../lib/calculators.
 import { createVersion, getOnlyDay, rejectVersion, saveGoalTargets } from "../lib/queries.ts";
 import { parseVersionKey } from "../lib/versions.ts";
 import { NUTRIENTS } from "../lib/nutrients.ts";
-import { CATEGORIES, isStapleKind } from "../lib/categories.ts";
+import { CATEGORIES } from "../lib/categories.ts";
 import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAllProposals, dismissProposal } from "../lib/fixes.ts";
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
@@ -69,22 +69,17 @@ export async function setIngredientCategory(f: FormData) {
   refresh();
 }
 
-// Staples
-export async function addStaple(f: FormData) {
-  const name = str(f, "name");
-  const kind = str(f, "kind");
-  if (name && isStapleKind(kind)) getDb().prepare("INSERT OR IGNORE INTO staples (name, kind) VALUES (?, ?)").run(name, kind);
-  refresh();
-}
-export async function deleteStaple(id: number) {
-  getDb().prepare("DELETE FROM staples WHERE id = ?").run(id);
-  refresh();
-}
-
 // Meals
+export async function setMealOccasional(id: number, occasional: boolean) {
+  getDb().prepare("UPDATE meals SET occasional = ? WHERE id = ?").run(occasional ? 1 : 0, id);
+  refresh();
+}
 export async function createMeal(f: FormData) {
   const name = str(f, "name");
-  if (name) getDb().prepare("INSERT OR IGNORE INTO meals (name, typical_slot, status) VALUES (?, ?, 'approved')").run(name, str(f, "slot"));
+  if (name) {
+    getDb().prepare("INSERT OR IGNORE INTO meals (name, typical_slot, status, occasional) VALUES (?, ?, 'approved', ?)")
+      .run(name, str(f, "slot"), str(f, "occasional") === "1" ? 1 : 0);
+  }
   refresh();
 }
 export async function setMealItem(f: FormData) {

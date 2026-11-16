@@ -4,7 +4,7 @@ import { NUTRIENT_GROUPS } from "../../../lib/nutrients.ts";
 import { BackLink } from "../../ui.tsx";
 import { RenameTitle } from "../../rename.tsx";
 import { Select } from "../../select.tsx";
-import { renameMeal, setMealItem, removeMealItem, approve, deleteMeal } from "../../actions.ts";
+import { renameMeal, setMealItem, removeMealItem, approve, deleteMeal, setMealOccasional } from "../../actions.ts";
 
 export default async function MealPage({ params }: { params: Promise<{ id: string }> }) {
   const meal = getMeal(Number((await params).id));
@@ -16,6 +16,10 @@ export default async function MealPage({ params }: { params: Promise<{ id: strin
       <h1><RenameTitle id={meal.id} name={meal.name} action={renameMeal} />{meal.status === "proposed" && <span className="badge proposed">proposed</span>}</h1>
       <p className="lede">{[meal.typical_slot, meal.source, meal.notes].filter(Boolean).join(" · ")}</p>
       {meal.status === "proposed" && <form action={approve.bind(null, "meal", meal.id)}><button className="primary">Approve meal</button></form>}
+      <form action={setMealOccasional.bind(null, meal.id, !meal.occasional)} className="row">
+        {meal.occasional ? <span className="badge use-occasional" style={{ marginLeft: 0 }}>occasional</span> : null}
+        <button className="link">{meal.occasional ? "Not an occasional meal" : "Mark as an occasional meal (cooked now and then, not in the typical day)"}</button>
+      </form>
 
       <div className="split" style={{ marginTop: 24 }}>
         <section>

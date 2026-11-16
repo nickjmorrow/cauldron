@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupByCategory, isStapleKind, UNCATEGORIZED } from "./categories.ts";
+import { groupByCategory, UNCATEGORIZED } from "./categories.ts";
 
 test("groups follow the category order, skip empty ones, and put unknown or blank categories last", () => {
   const groups = groupByCategory([
@@ -15,11 +15,4 @@ test("groups follow the category order, skip empty ones, and put unknown or blan
     ["Oils & vinegars", ["Olive oil"]],
     [UNCATEGORIZED, ["Mystery", "Odd"]],
   ]);
-});
-
-test("only spice and baking are staple kinds", () => {
-  assert.equal(isStapleKind("spice"), true);
-  assert.equal(isStapleKind("baking"), true);
-  assert.equal(isStapleKind("toString"), false);
-  assert.equal(isStapleKind("other"), false);
 });
