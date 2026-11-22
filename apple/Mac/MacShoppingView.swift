@@ -83,6 +83,7 @@ struct MacShoppingView: View {
                         .font(.footnote).foregroundStyle(Theme.muted)
                 }
             }
+            .fixedSize(horizontal: false, vertical: true) // macOS list rows otherwise keep a two-line height and clip the meals line
             Spacer(minLength: 0)
             if let url = store.photoURL(item) {
                 Button { viewing = item } label: {
