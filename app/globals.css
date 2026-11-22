@@ -458,6 +458,13 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 .spinner { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+.shop-map { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
+.shop-map summary { cursor: pointer; font-weight: 500; }
+.shop-map-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0; font-size: 14px; }
+.shop-map-list div { display: contents; }
+.shop-map-list dt { font-weight: 500; }
+.shop-map-list dd { margin: 0; color: var(--muted); }
+.shop-map button { display: inline-flex; align-items: center; gap: 8px; }
 .shop-later-toggle { margin: 4px 0 14px; font-size: 14px; }
 .shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; min-height: 40px; display: inline-flex; align-items: center; gap: 7px; list-style: none; border-radius: 6px; }
 .shop-edit summary::-webkit-details-marker { display: none; }

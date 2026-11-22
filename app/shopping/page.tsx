@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { getDb } from "../../lib/db.ts";
+import { storeMapBuilding } from "../../lib/aisles.ts";
+import { getStoreMap, storeMapUpdated } from "../../lib/store-map.ts";
 import { groupItems, listItems, type ShoppingItem } from "../../lib/shopping.ts";
 import { PhotoForm } from "./photo-form.tsx";
 import { RefreshWhile } from "./refresh-while.tsx";
-import { addShoppingItem, changeShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle, setShoppingMeals } from "../actions.ts";
+import { addShoppingItem, changeShoppingItem, clearShoppingDone, researchStoreMap, removeShoppingItem, setShoppingAisle, setShoppingMeals } from "../actions.ts";
 
 const Check = () => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -99,7 +101,10 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
   const shown = groups
     .map((g) => ({ ...g, items: showLater ? g.items : g.items.filter((i) => !i.later) }))
     .filter((g) => g.items.length > 0);
-  const looking = groups.some((g) => g.items.some((i) => i.looking));
+  const building = storeMapBuilding();
+  const looking = building || groups.some((g) => g.items.some((i) => i.looking));
+  const storeMap = getStoreMap();
+  const mapUpdated = storeMapUpdated();
 
   return (
     <>
@@ -143,6 +148,24 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
           <ul className="shop-list">{done.map((i) => <Item key={i.id} item={i} links={links} />)}</ul>
         </section>
       )}
+
+      <details className="shop-map">
+        <summary>Store map <span className="muted">({storeMap.length} aisles{mapUpdated ? `, researched ${new Date(mapUpdated).toLocaleDateString()}` : ", not researched yet"})</span></summary>
+        <p className="muted">What each aisle holds. New items are placed from this first; the web is searched only when no aisle fits. Aisles you type are added to it.</p>
+        {storeMap.length > 0 && (
+          <dl className="shop-map-list">
+            {storeMap.map((a) => (
+              <div key={a.aisle}>
+                <dt>Aisle {a.aisle}</dt>
+                <dd>{[...a.holds, ...a.items.map((n) => `${n} (your list)`)].join(", ")}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        <form action={researchStoreMap}>
+          <button disabled={building}>{building ? <><span className="spinner" aria-hidden="true" /> Researching the store…</> : storeMap.length ? "Research again" : "Research the store"}</button>
+        </form>
+      </details>
     </>
   );
 }
