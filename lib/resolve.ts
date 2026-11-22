@@ -56,7 +56,7 @@ function addedFood(add: Extract<Adjustment, { kind: "add" }>, lookup: Lookup): M
   const ingredient = add.ingredientId === null ? undefined : lookup.ingredient(add.ingredientId);
   if (!ingredient) return undefined;
   return {
-    id: -ingredient.id, name: ingredient.name, typical_slot: "", source: "", notes: "", status: "approved",
+    id: -ingredient.id, name: ingredient.name, typical_slot: "", source: "", notes: "", status: "approved", occasional: 0,
     totals: scale(ingredient.nutrients, add.qty), items: [{ ingredient, qty: add.qty }],
   };
 }

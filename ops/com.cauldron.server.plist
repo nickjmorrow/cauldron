@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- ops/deploy.sh swaps the home-folder placeholder for the server user's home and installs this in ~/Library/LaunchAgents. No secrets here: Next.js reads .env.local at runtime. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.cauldron.server</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/Projects/cauldron/ops/run.sh</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/cauldron.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/cauldron.log</string>
+</dict>
+</plist>

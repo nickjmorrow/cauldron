@@ -65,6 +65,17 @@ npm start                    # http://127.0.0.1:3100
 
 Both servers bind to `127.0.0.1` only; there is no authentication, so put it behind a reverse proxy or VPN if you run it on a server.
 
+### Running on a server
+
+`ops/deploy.sh` runs the tests, copies the code to a Mac you can reach over ssh, builds it there and keeps it running under launchd (`com.cauldron.server`, log `~/Library/Logs/cauldron.log`). It also sets up a tailnet-only `tailscale serve` in front of port 3100, so only your own devices can reach it.
+
+```sh
+echo 'CAULDRON_DEPLOY_HOST=my-server' >> .env.local
+./ops/deploy.sh
+```
+
+The script never copies or changes `data/`. To start the server with your existing data, copy `data/cauldron.db` there once, before the first deploy. After that the server's database is the one to use; a second copy edited elsewhere will drift.
+
 ### Configuration
 
 | Variable | Purpose | Default |
@@ -72,6 +83,8 @@ Both servers bind to `127.0.0.1` only; there is no authentication, so put it beh
 | `USDA_API_KEY` | USDA FoodData Central key for ingredient lookups | `DEMO_KEY` (about 10 requests per hour) |
 | `CAULDRON_DB` | SQLite database path | `data/cauldron.db` |
 | `CAULDRON_XLSX` | Spreadsheet `npm run import` reads when no path is given | `data/diet.xlsx` |
+| `CAULDRON_DEPLOY_HOST` | ssh host `ops/deploy.sh` deploys to | none (required to deploy) |
+| `CAULDRON_SERVE_PORT` | Tailnet HTTPS port `ops/deploy.sh` serves on | `8456` |
 
 Next.js reads these from `.env.local`. The import script is plain Node, so pass variables inline there, for example `CAULDRON_DB=data/other.db npm run import -- diet.xlsx`.
 
