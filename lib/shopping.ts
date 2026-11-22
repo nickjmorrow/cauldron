@@ -4,6 +4,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { join } from "node:path";
 import { getDb, PHOTOS_DIR } from "./db.ts";
 import { guessSection, sectionRank } from "./sections.ts";
+import { getAisleContents } from "./store-map.ts";
 
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
 // aisleFrom: where the aisle came from ('you', 'remembered', 'store' when looked up, 'guess' from the name, or '').
@@ -12,7 +13,8 @@ export type ShoppingItem = {
   id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string; photo: string;
   aisleFrom: string; looking: boolean; meals: string[];
 };
-export type ShoppingGroup = { title: string; items: ShoppingItem[] };
+// holds: what the aisle holds, when known ("" otherwise).
+export type ShoppingGroup = { title: string; holds: string; items: ShoppingItem[] };
 export type ShoppingList = { groups: ShoppingGroup[]; done: ShoppingItem[] };
 export type ItemChange = Partial<Omit<ShoppingItem, "id" | "photo" | "aisleFrom" | "looking">>;
 
@@ -61,11 +63,11 @@ function compareAisles(a: string, b: string): number {
 }
 
 // Every open item by aisle, "later" ones included (clients choose whether to show them); done items are listed apart.
-export function groupItems(items: ShoppingItem[]): ShoppingList {
+export function groupItems(items: ShoppingItem[], contents: Record<string, string> = getAisleContents()): ShoppingList {
   const open = items.filter((i) => !i.done);
   const aisles = [...new Set(open.map((i) => i.aisle))].sort(compareAisles);
   const byName = (a: ShoppingItem, b: ShoppingItem) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  const groups = aisles.map((aisle) => ({ title: aisleTitle(aisle), items: open.filter((i) => i.aisle === aisle).sort(byName) }));
+  const groups = aisles.map((aisle) => ({ title: aisleTitle(aisle), holds: contents[aisle] ?? "", items: open.filter((i) => i.aisle === aisle).sort(byName) }));
   return { groups, done: items.filter((i) => i.done) };
 }
 

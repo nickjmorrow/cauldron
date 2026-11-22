@@ -143,7 +143,7 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
       )}
       {shown.map((g) => (
         <section key={g.title} className="shop-group">
-          <h2>{g.title} <span className="muted">({g.items.length})</span></h2>
+          <h2>{g.title} <span className="muted">({g.items.length})</span>{g.holds && <span className="shop-holds">{g.holds}</span>}</h2>
           <ul className="shop-list">{g.items.map((i) => <Item key={i.id} item={i} links={links} showLater={showLater} />)}</ul>
         </section>
       ))}
@@ -159,13 +159,13 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
 
       <details className="shop-map">
         <summary>Store map <span className="muted">({storeMap.length} aisles known)</span></summary>
-        <p className="muted">The aisles your items are known to be in. New items are placed next to things of the same kind; type an aisle once and it's remembered.</p>
+        <p className="muted">What each aisle holds, and the items known to be in it. New items are placed in the aisle that holds their kind of thing; type an aisle once and it's remembered.</p>
         {storeMap.length > 0 && (
           <dl className="shop-map-list">
             {storeMap.map((a) => (
               <div key={a.aisle}>
                 <dt>Aisle {a.aisle}</dt>
-                <dd>{a.items.join(", ")}</dd>
+                <dd>{a.holds && <span className="shop-holds-map">{a.holds}</span>}{a.items.length > 0 && <span>{a.items.join(", ")}</span>}</dd>
               </div>
             ))}
           </dl>

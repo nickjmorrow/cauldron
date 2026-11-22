@@ -27,8 +27,11 @@ struct Item: Codable, Identifiable, Hashable {
 /// leaving out "later" items unless asked to show them.
 struct ItemGroup: Codable, Hashable, Identifiable {
     var title: String
+    /// What the aisle holds ("Pasta, condiments"), when known. Optional so lists saved before it existed still load.
+    var holds: String? = nil
     var items: [Item]
     var id: String { title }
+    var aisleHolds: String? { holds.flatMap { $0.isEmpty ? nil : $0 } }
 }
 
 struct ShoppingList: Codable, Hashable {
@@ -41,7 +44,7 @@ struct ShoppingList: Codable, Hashable {
     func visibleGroups(showLater: Bool, keep: Set<Int> = []) -> [ItemGroup] {
         groups.compactMap { group in
             let items = showLater ? group.items : group.items.filter { !$0.later || keep.contains($0.id) }
-            return items.isEmpty ? nil : ItemGroup(title: group.title, items: items)
+            return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
         }
     }
 

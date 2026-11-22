@@ -21,8 +21,12 @@ struct MacShoppingView: View {
                 // Plain headings that scroll with the list (a List pins them under the title bar).
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(groups) { group in
-                        Text(group.title)
-                            .font(.headline).foregroundStyle(Theme.muted)
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(group.title).font(.headline).foregroundStyle(Theme.muted)
+                            if let holds = group.aisleHolds {
+                                Text(holds).font(.callout).foregroundStyle(Theme.muted.opacity(0.8)).lineLimit(1)
+                            }
+                        }
                             .padding(.top, 18).padding(.bottom, 6).padding(.horizontal, 4)
                         card(group.items)
                     }

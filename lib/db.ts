@@ -155,6 +155,11 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
   meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
 );
+-- What each numbered aisle of the store holds ("Pasta, condiments, Mexican and Asian foods"), shown next to its heading.
+CREATE TABLE IF NOT EXISTS aisle_contents (
+  aisle TEXT PRIMARY KEY,
+  holds TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL

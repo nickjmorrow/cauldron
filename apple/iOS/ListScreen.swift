@@ -22,7 +22,12 @@ struct ListScreen: View {
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
-                        Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
+                            if let holds = group.aisleHolds {
+                                Text(holds).font(.caption).foregroundStyle(Theme.muted.opacity(0.8)).textCase(nil)
+                            }
+                        }
                     }
                 }
                 if !store.list.done.isEmpty { doneSection }

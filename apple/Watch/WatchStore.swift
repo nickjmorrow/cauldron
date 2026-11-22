@@ -68,7 +68,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
     private func show() {
         groups = (received?.groups ?? []).compactMap { group in
             let items = group.items.filter { !$0.done && !$0.later && !checked.contains($0.id) }
-            return items.isEmpty ? nil : ItemGroup(title: group.title, items: items)
+            return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
         }
     }
 

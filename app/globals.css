@@ -425,7 +425,11 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
   .shop-add input[name="name"] { grid-column: 1 / -1; }
   .shop-add .primary { justify-self: stretch; }
 }
-.shop-group h2 { margin-bottom: 6px; }
+.shop-group h2 { margin-bottom: 6px; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; }
+.shop-holds { flex-basis: 100%; font-size: 0.85rem; font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; }
+@media (min-width: 640px) { .shop-holds { flex-basis: auto; margin-left: 6px; } .shop-holds::before { content: "· "; } }
+.shop-map-list dd > span { display: block; }
+.shop-holds-map { color: var(--fg); }
 .shop-list { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .shop-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; flex-wrap: wrap; }
 .shop-item + .shop-item { border-top: 1px solid var(--line); }

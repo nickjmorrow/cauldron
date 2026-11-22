@@ -24,7 +24,12 @@ struct WatchList: View {
                                 .listRowBackground(RoundedRectangle(cornerRadius: 14).fill(Theme.raised))
                         }
                     } header: {
-                        Text(group.title).font(.footnote.weight(.semibold)).foregroundStyle(Theme.sun)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(group.title).font(.footnote.weight(.semibold)).foregroundStyle(Theme.sun)
+                            if let holds = group.aisleHolds {
+                                Text(holds).font(.caption2).foregroundStyle(Theme.muted).textCase(nil).lineLimit(2)
+                            }
+                        }
                     }
                 }
                 Section {
