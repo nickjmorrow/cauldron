@@ -1,4 +1,5 @@
 import { groupItems, listItems, type ShoppingItem } from "../../lib/shopping.ts";
+import { PhotoForm } from "./photo-form.tsx";
 import { addShoppingItem, changeShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle } from "../actions.ts";
 
 const Check = () => (
@@ -13,6 +14,11 @@ function Item({ item }: { item: ShoppingItem }) {
       <form action={changeShoppingItem.bind(null, item.id, { done: !item.done })}>
         <button className="shop-check" aria-label={item.done ? `Put ${item.name} back on the list` : `Check off ${item.name}`}>{item.done && <Check />}</button>
       </form>
+      {item.photo && (
+        <a href={`/api/shopping/${item.id}/photo?v=${encodeURIComponent(item.photo)}`} className="shop-thumb" aria-label={`Photo of ${item.name}`}>
+          <img src={`/api/shopping/${item.id}/photo?v=${encodeURIComponent(item.photo)}`} alt="" loading="lazy" />
+        </a>
+      )}
       <div className="shop-text">
         <span className="shop-name">{item.name}</span>
         {(item.qty || item.note) && <span className="muted shop-detail">{[item.qty, item.note].filter(Boolean).join(" · ")}</span>}
@@ -25,6 +31,7 @@ function Item({ item }: { item: ShoppingItem }) {
               <input name="aisle" aria-label="Aisle" placeholder="Aisle (4, Produce)" defaultValue={item.aisle} size={14} />
               <button>Save aisle</button>
             </form>
+            <PhotoForm id={item.id} hasPhoto={item.photo !== ""} />
             <div className="row">
               <form action={changeShoppingItem.bind(null, item.id, { later: !item.later })}><button>{item.later ? "Move to this trip" : "Move to later"}</button></form>
               <form action={removeShoppingItem.bind(null, item.id)}><button className="link danger">Remove</button></form>
@@ -43,7 +50,7 @@ export default function Shopping() {
   return (
     <>
       <h1>Shopping</h1>
-      <p className="lede">This trip's items in aisle order, with a later pile for everything else. An item remembers its aisle the next time you add it.</p>
+      <p className="lede">This trip's items in aisle order, with a later pile for everything else. An item remembers its aisle and photo the next time you add it.</p>
 
       <form action={addShoppingItem} className="add shop-add">
         <input name="name" aria-label="Item" placeholder="Add an item (celery)" required />

@@ -14,7 +14,7 @@ You describe one **base day** (the meals you usually eat, with variations), and 
 - **Targets**: calorie and macro targets for all three goals from your profile, plus which nutrients may run over and by how much.
 - **AI proposals with review**: describe what you want in words and the `claude` CLI maps it to ingredient searches, meals, liked foods or kitchen placements. Ingredient nutrients come from USDA FoodData Central. Everything lands as *proposed* and counts only after you approve it on the Review page.
 - **Kitchen**: name the places food lives (pantry, fridge shelves, freezer) and see where each ingredient is kept.
-- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. An item remembers its aisle the next time it's added. A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
+- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. Items can carry a photo (of the exact product, say). An item remembers its aisle and photo the next time it's added. A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
 
 ## How it works
 
@@ -94,7 +94,7 @@ Then open `Cauldron.xcodeproj` and run the `Cauldron` scheme on a phone that has
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `USDA_API_KEY` | USDA FoodData Central key for ingredient lookups | `DEMO_KEY` (about 10 requests per hour) |
-| `CAULDRON_DB` | SQLite database path | `data/cauldron.db` |
+| `CAULDRON_DB` | SQLite database path; shopping photos go in a folder beside it (`data/cauldron-photos/`) | `data/cauldron.db` |
 | `CAULDRON_XLSX` | Spreadsheet `npm run import` reads when no path is given | `data/diet.xlsx` |
 | `CAULDRON_DEPLOY_HOST` | ssh host `ops/deploy.sh` deploys to | none (required to deploy) |
 | `CAULDRON_SERVE_PORT` | Tailnet HTTPS port `ops/deploy.sh` serves on | `8456` |

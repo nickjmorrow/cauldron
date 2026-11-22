@@ -5,12 +5,16 @@ import { rmSync } from "node:fs";
 // Own database file, so the real one is never touched.
 const FILE = "data/test-shopping.db";
 process.env.CAULDRON_DB = FILE;
-const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, LATER } = await import("./shopping.ts");
+const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, LATER, setPhoto, getPhoto, removePhoto } = await import("./shopping.ts");
+const { PHOTOS_DIR } = await import("./db.ts");
 
-test.after(() => { for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true }); });
+test.after(() => {
+  for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true });
+  rmSync(PHOTOS_DIR, { recursive: true, force: true });
+});
 
 const item = (name: string, aisle = "", extra: { later?: boolean; done?: boolean } = {}) =>
-  ({ id: 0, name, qty: "", aisle, later: false, done: false, note: "", ...extra });
+  ({ id: 0, name, qty: "", aisle, later: false, done: false, note: "", photo: "", ...extra });
 
 test("numbered aisles come first in walking order, then named areas, then items with no aisle, then later", () => {
   const list = groupItems([
@@ -54,7 +58,7 @@ test("a bad change says what was wrong", () => {
 
 test("items are added, checked off, un-checked and removed", () => {
   const celery = addItem({ name: "Celery", qty: "1 bunch", aisle: "Produce" });
-  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "" });
+  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "", photo: "" });
   assert.equal(updateItem(celery.id, { done: true })!.done, true);
   assert.equal(updateItem(celery.id, { done: false, later: true })!.later, true);
   assert.equal(listItems().find((i) => i.id === celery.id)!.done, false);
@@ -79,4 +83,41 @@ test("a deleted item's id is never given to a new item", () => {
   const first = addItem({ name: "Pears" });
   removeItem(first.id);
   assert.ok(addItem({ name: "Plums" }).id > first.id);
+});
+
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+test("a photo is stored with its type read from the file, replaced, and removed", () => {
+  const tea = addItem({ name: "Tea" });
+  const withPhoto = setPhoto(tea.id, JPEG) as { photo: string };
+  assert.notEqual(withPhoto.photo, "");
+  assert.deepEqual(getPhoto(tea.id), { bytes: Buffer.from(JPEG), type: "image/jpeg" });
+  setPhoto(tea.id, PNG);
+  assert.equal(getPhoto(tea.id)!.type, "image/png");
+  assert.equal(removePhoto(tea.id)!.photo, "");
+  assert.equal(getPhoto(tea.id), undefined);
+  removeItem(tea.id);
+});
+
+test("a bad upload says what was wrong; an unknown item is not found", () => {
+  const jam = addItem({ name: "Jam" });
+  assert.match((setPhoto(jam.id, new Uint8Array()) as { error: string }).error, /request body/);
+  assert.match((setPhoto(jam.id, new TextEncoder().encode("<svg></svg>")) as { error: string }).error, /JPEG, PNG/);
+  assert.match((setPhoto(jam.id, new Uint8Array(10 * 1024 * 1024 + 1).fill(0xff)) as { error: string }).error, /over 10 MB/);
+  assert.equal(setPhoto(999999, JPEG), undefined);
+  removeItem(jam.id);
+});
+
+test("an item added again gets the last photo of the same name, and deleting an item deletes its photo", () => {
+  const first = addItem({ name: "Oat milk" });
+  setPhoto(first.id, JPEG);
+  updateItem(first.id, { done: true });
+  clearDone();
+  const again = addItem({ name: "oat milk" });
+  assert.notEqual(again.photo, "");
+  assert.equal(getPhoto(again.id)!.type, "image/jpeg");
+  removeItem(again.id);
+  assert.equal(getPhoto(again.id), undefined);
+  assert.equal(addItem({ name: "Butter" }).photo, "");
 });

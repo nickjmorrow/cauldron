@@ -2,6 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 
 const DB_PATH = process.env.CAULDRON_DB ?? "data/cauldron.db";
+// Shopping item photos live next to the database, one folder per database file, so tests never share the real one.
+export const PHOTOS_DIR = DB_PATH.replace(/\.db$/, "") + "-photos";
 // Used to average old workout and rest targets when no profile says how many workout days there are.
 const DEFAULT_WORKOUT_DAYS = 4;
 
@@ -145,7 +147,9 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   later INTEGER NOT NULL DEFAULT 0,
   note TEXT NOT NULL DEFAULT '',
   done_at TEXT,
-  cleared INTEGER NOT NULL DEFAULT 0
+  cleared INTEGER NOT NULL DEFAULT 0,
+  photo_type TEXT NOT NULL DEFAULT '', -- the photo's image type; '' = no photo
+  photo_at TEXT NOT NULL DEFAULT ''    -- when it was last set, so clients can tell a new photo from a cached one
 );
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
@@ -232,6 +236,10 @@ function migrate(db: DatabaseSync) {
   // 1 = cooked now and then, outside the typical day (cookies, a stew), so its ingredients still count as in use.
   const meals = db.prepare("PRAGMA table_info(meals)").all() as { name: string }[];
   if (!meals.some((c) => c.name === "occasional")) db.exec("ALTER TABLE meals ADD COLUMN occasional INTEGER NOT NULL DEFAULT 0;");
+  const shoppingColumns = db.prepare("PRAGMA table_info(shopping_items)").all() as { name: string }[];
+  if (!shoppingColumns.some((c) => c.name === "photo_type")) {
+    db.exec("ALTER TABLE shopping_items ADD COLUMN photo_type TEXT NOT NULL DEFAULT ''; ALTER TABLE shopping_items ADD COLUMN photo_at TEXT NOT NULL DEFAULT '';");
+  }
   // Shopping item ids must never be reused: the phone and watch apps may still hold a change for a deleted item.
   const shopping = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'shopping_items'").get() as { sql: string };
   if (!shopping.sql.includes("AUTOINCREMENT")) {

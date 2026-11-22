@@ -1,0 +1,32 @@
+"use client";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+// Uploads go to the JSON API rather than a server action, whose request limit (1 MB) is smaller than a phone photo.
+export function PhotoForm({ id, hasPhoto }: { id: number; hasPhoto: boolean }) {
+  const router = useRouter();
+  const [status, setStatus] = useState("");
+
+  async function send(method: "PUT" | "DELETE", body?: File) {
+    setStatus(method === "PUT" ? "Uploading…" : "Removing…");
+    const response = await fetch(`/api/shopping/${id}/photo`, { method, body }).catch(() => null);
+    if (!response?.ok) {
+      const reason = await response?.json().then((r: { error?: string }) => r.error).catch(() => undefined);
+      setStatus(reason ?? "Couldn't reach the server.");
+      return;
+    }
+    setStatus("");
+    router.refresh();
+  }
+
+  return (
+    <div className="row">
+      <label className="shop-photo-pick">
+        {hasPhoto ? "Replace photo" : "Add photo"}
+        <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) send("PUT", file); }} />
+      </label>
+      {hasPhoto && <button className="link danger" onClick={() => send("DELETE")}>Remove photo</button>}
+      {status && <span className="muted" role="status">{status}</span>}
+    </div>
+  );
+}

@@ -1,21 +1,32 @@
 // The shopping list: things to buy, grouped by the store aisle they're in, with a "later" pile for things
 // that aren't for this trip. Checked-off items stay until they're cleared, so a mistaken tap can be undone.
-import { getDb } from "./db.ts";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { getDb, PHOTOS_DIR } from "./db.ts";
 
-export type ShoppingItem = { id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string };
+// photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
+export type ShoppingItem = { id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string; photo: string };
 export type ShoppingGroup = { title: string; items: ShoppingItem[] };
 export type ShoppingList = { groups: ShoppingGroup[]; done: ShoppingItem[] };
-export type ItemChange = Partial<Omit<ShoppingItem, "id">>;
+export type ItemChange = Partial<Omit<ShoppingItem, "id" | "photo">>;
 
 export const NO_AISLE = "No aisle yet";
 export const LATER = "Later";
 const TEXT_FIELDS = ["name", "qty", "aisle", "note"] as const;
 const FLAG_FIELDS = ["later", "done"] as const;
 const MAX_TEXT = 200;
+export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+// Read from the file's first bytes, not from what the sender claims.
+const IMAGE_SIGNATURES: { type: string; matches: (b: Uint8Array) => boolean }[] = [
+  { type: "image/jpeg", matches: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+  { type: "image/png", matches: (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+  { type: "image/webp", matches: (b) => String.fromCharCode(...b.slice(0, 4)) === "RIFF" && String.fromCharCode(...b.slice(8, 12)) === "WEBP" },
+  { type: "image/gif", matches: (b) => String.fromCharCode(...b.slice(0, 4)) === "GIF8" },
+];
 
-type Row = { id: number; name: string; qty: string; aisle: string; later: number; note: string; done_at: string | null };
-const toItem = (r: Row): ShoppingItem => ({ id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, later: r.later === 1, done: r.done_at !== null, note: r.note });
-const COLUMNS = "id, name, qty, aisle, later, note, done_at";
+type Row = { id: number; name: string; qty: string; aisle: string; later: number; note: string; done_at: string | null; photo_type: string; photo_at: string };
+const toItem = (r: Row): ShoppingItem => ({ id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, later: r.later === 1, done: r.done_at !== null, note: r.note, photo: r.photo_type ? r.photo_at : "" });
+const COLUMNS = "id, name, qty, aisle, later, note, done_at, photo_type, photo_at";
 
 // "4" reads as "Aisle 4"; a named area such as "Produce" is shown as written.
 export function aisleTitle(aisle: string): string {
@@ -88,11 +99,24 @@ function rememberedAisle(name: string): string {
   return row?.aisle ?? "";
 }
 
+// Likewise the photo: the most recent item of the same name that has one.
+function rememberedPhoto(name: string): { id: number; photo_type: string } | undefined {
+  return getDb().prepare("SELECT id, photo_type FROM shopping_items WHERE name = ? COLLATE NOCASE AND photo_type != '' ORDER BY id DESC LIMIT 1").get(name) as { id: number; photo_type: string } | undefined;
+}
+
+const photoPath = (id: number) => join(PHOTOS_DIR, String(id));
+
 export function addItem(change: ItemChange & { name: string }): ShoppingItem {
   const aisle = change.aisle || rememberedAisle(change.name);
+  const photo = rememberedPhoto(change.name);
   const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, later, note, done_at) VALUES (?, ?, ?, ?, ?, ?)")
     .run(change.name, change.qty ?? "", aisle, change.later ? 1 : 0, change.note ?? "", change.done ? new Date().toISOString() : null);
-  return getItem(Number(result.lastInsertRowid))!;
+  const id = Number(result.lastInsertRowid);
+  if (photo && existsSync(photoPath(photo.id))) {
+    copyFileSync(photoPath(photo.id), photoPath(id));
+    getDb().prepare("UPDATE shopping_items SET photo_type = ?, photo_at = ? WHERE id = ?").run(photo.photo_type, new Date().toISOString(), id);
+  }
+  return getItem(id)!;
 }
 
 export function updateItem(id: number, change: ItemChange): ShoppingItem | undefined {
@@ -108,7 +132,34 @@ export function updateItem(id: number, change: ItemChange): ShoppingItem | undef
 }
 
 export function removeItem(id: number): boolean {
+  rmSync(photoPath(id), { force: true });
   return getDb().prepare("DELETE FROM shopping_items WHERE id = ?").run(id).changes > 0;
+}
+
+// Saves a photo for an item, replacing any it had. Returns the item, or what was wrong with the upload.
+export function setPhoto(id: number, bytes: Uint8Array): ShoppingItem | { error: string } | undefined {
+  if (!getItem(id)) return undefined;
+  if (bytes.length === 0) return { error: "Send the photo as the request body." };
+  if (bytes.length > MAX_PHOTO_BYTES) return { error: `The photo is over ${MAX_PHOTO_BYTES / 1024 / 1024} MB.` };
+  const type = IMAGE_SIGNATURES.find((s) => s.matches(bytes))?.type;
+  if (!type) return { error: "Send a JPEG, PNG, WebP or GIF image." };
+  mkdirSync(PHOTOS_DIR, { recursive: true });
+  writeFileSync(photoPath(id), bytes);
+  getDb().prepare("UPDATE shopping_items SET photo_type = ?, photo_at = ? WHERE id = ?").run(type, new Date().toISOString(), id);
+  return getItem(id);
+}
+
+export function getPhoto(id: number): { bytes: Buffer; type: string } | undefined {
+  const row = getDb().prepare("SELECT photo_type FROM shopping_items WHERE id = ?").get(id) as { photo_type: string } | undefined;
+  if (!row?.photo_type || !existsSync(photoPath(id))) return undefined;
+  return { bytes: readFileSync(photoPath(id)), type: row.photo_type };
+}
+
+export function removePhoto(id: number): ShoppingItem | undefined {
+  if (!getItem(id)) return undefined;
+  rmSync(photoPath(id), { force: true });
+  getDb().prepare("UPDATE shopping_items SET photo_type = '', photo_at = ? WHERE id = ?").run(new Date().toISOString(), id);
+  return getItem(id);
 }
 
 // Cleared items are kept, hidden, so their aisle is remembered the next time the same thing is added.
