@@ -135,6 +135,18 @@ CREATE TABLE IF NOT EXISTS ingredient_locations (
   location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
   PRIMARY KEY (ingredient_id, location_id)
 );
+-- The shopping list. aisle is a number ("4") or a named area ("Produce"); later = not for this trip.
+-- done_at is when it was checked off; cleared = hidden after the trip but kept, so its aisle is remembered.
+CREATE TABLE IF NOT EXISTS shopping_items (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  qty TEXT NOT NULL DEFAULT '',
+  aisle TEXT NOT NULL DEFAULT '',
+  later INTEGER NOT NULL DEFAULT 0,
+  note TEXT NOT NULL DEFAULT '',
+  done_at TEXT,
+  cleared INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL

@@ -14,6 +14,7 @@ You describe one **base day** (the meals you usually eat, with variations), and 
 - **Targets**: calorie and macro targets for all three goals from your profile, plus which nutrients may run over and by how much.
 - **AI proposals with review**: describe what you want in words and the `claude` CLI maps it to ingredient searches, meals, liked foods or kitchen placements. Ingredient nutrients come from USDA FoodData Central. Everything lands as *proposed* and counts only after you approve it on the Review page.
 - **Kitchen**: name the places food lives (pantry, fridge shelves, freezer) and see where each ingredient is kept.
+- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. An item remembers its aisle the next time it's added. A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
 
 ## How it works
 
@@ -94,19 +95,21 @@ Next.js reads these from `.env.local`. The import script is plain Node, so pass 
 npm test
 ```
 
-Runs Node's built-in test runner over `lib/*.test.ts`: 134 tests across 20 files covering the solver, fixes and proposals, guardrails and tolerances, nutrient totals and contributors, version resolution, day-variation spread, the target calculators, schema migrations and the spreadsheet importer. Each test file uses its own database under `data/`, never `data/cauldron.db`.
+Runs Node's built-in test runner over `lib/*.test.ts`: 134 tests across 21 files covering the solver, fixes and proposals, guardrails and tolerances, nutrient totals and contributors, version resolution, day-variation spread, the target calculators, schema migrations and the spreadsheet importer. Each test file uses its own database under `data/`, never `data/cauldron.db`.
 
 ## Project layout
 
 ```
 app/                  Next.js routes, server actions and UI
   days/[id]/          day planner: version blocks, overview, base day, nutrient tables
-  meals/ ingredients/ kitchen/ targets/ review/
+  meals/ ingredients/ kitchen/ shopping/ targets/ review/
+  api/shopping/       JSON API for the shopping list
   actions.ts          every server action (writes)
 lib/                  domain logic and data access, with tests alongside (*.test.ts)
   db.ts               schema, migrations, SQLite connection
   solver.ts fixes.ts  suggested fixes
   ai.ts usda.ts       AI proposals and USDA lookups
+  shopping.ts         shopping list: grouping by aisle, input checks, storage
 scripts/
   import-xlsx.ts      one-time spreadsheet import
 CLAUDE.md             notes for AI coding assistants working in this repo

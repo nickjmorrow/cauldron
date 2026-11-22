@@ -413,3 +413,20 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
   .sp-why { grid-column: 1 / -1; }
   .sp-why:empty { display: none; }
 }
+
+/* Shopping list: rows big enough to tap with a thumb while walking. */
+.shop-add input[name="name"] { flex: 1 1 220px; }
+.shop-group h2 { margin-bottom: 6px; }
+.shop-list { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.shop-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; flex-wrap: wrap; }
+.shop-item + .shop-item { border-top: 1px solid var(--line); }
+.shop-check { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; border-width: 2px; border-color: var(--muted); display: grid; place-items: center; }
+.is-done .shop-check { background: var(--sun); border-color: var(--sun); color: var(--sun-ink); }
+.shop-text { flex: 1; min-width: 0; display: grid; }
+.shop-name { font-size: 17px; overflow-wrap: anywhere; }
+.is-done .shop-name { color: var(--muted); text-decoration: line-through; }
+.shop-detail { font-size: 13px; }
+.shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; }
+.shop-edit[open] { flex-basis: 100%; }
+.shop-edit-body { display: grid; gap: 8px; padding: 4px 0 8px 46px; }
+.shop-group > .row { justify-content: space-between; align-items: baseline; }

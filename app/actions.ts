@@ -11,6 +11,7 @@ import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAl
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
+import { addItem, clearDone, parseChange, removeItem, updateItem, type ItemChange } from "../lib/shopping.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -336,4 +337,36 @@ export async function saveProfile(_: ProfileState, form: FormData): Promise<Prof
   saveGoalTargets(p);
   refresh();
   return null;
+}
+
+export async function addShoppingItem(f: FormData) {
+  const change = parseChange({ name: str(f, "name"), qty: str(f, "qty"), aisle: str(f, "aisle"), later: f.get("later") === "on" }, { needsName: true });
+  if ("error" in change) return; // the name field is required, so only a blank name gets here
+  addItem({ ...change, name: change.name! });
+  refresh();
+}
+
+// Server actions can be called with anything, so the change is checked like any other outside input.
+export async function changeShoppingItem(id: number, input: ItemChange) {
+  const change = parseChange(input, { needsName: false });
+  if ("error" in change) return;
+  updateItem(id, change);
+  refresh();
+}
+
+export async function setShoppingAisle(id: number, f: FormData) {
+  const change = parseChange({ aisle: str(f, "aisle") }, { needsName: false });
+  if ("error" in change) return;
+  updateItem(id, change);
+  refresh();
+}
+
+export async function removeShoppingItem(id: number) {
+  removeItem(id);
+  refresh();
+}
+
+export async function clearShoppingDone() {
+  clearDone();
+  refresh();
 }
