@@ -12,6 +12,8 @@ test("the research answer is read from its last JSON, keeping only numbered aisl
   const text = 'Found these.\n{"aisles": [{"aisle": "Aisle 09", "holds": ["canned soup", " broth "]}, {"aisle": "Produce", "holds": ["kale"]}, {"aisle": "3", "holds": []}]}';
   assert.deepEqual(readStoreMap(text), [{ aisle: "9", holds: ["canned soup", "broth"] }]);
   assert.equal(readStoreMap("no json"), undefined);
+  const spread = 'Here is the directory:\n```json\n{\n  "aisles": [\n    {"aisle": "3", "holds": ["cereal"]}\n  ]\n}\n```';
+  assert.deepEqual(readStoreMap(spread), [{ aisle: "3", holds: ["cereal"] }]);
 });
 
 test("the map joins the researched aisles with the items you've placed, in aisle order", () => {

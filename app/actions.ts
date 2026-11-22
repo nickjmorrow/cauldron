@@ -372,6 +372,17 @@ export async function setShoppingMeals(id: number, f: FormData) {
   refresh();
 }
 
+// The clock on a shopping row. Setting an item for later keeps it on the page (?kept=) with an Undo, so a stray tap
+// doesn't make it vanish; showLater carries whether later items were being shown.
+export async function setShoppingLater(id: number, later: boolean, showLater: boolean) {
+  updateItem(id, { later });
+  refresh();
+  const params = new URLSearchParams();
+  if (showLater) params.set("later", "show");
+  if (later && !showLater) params.set("kept", String(id));
+  redirect(params.size ? `/shopping?${params}` : "/shopping");
+}
+
 export async function researchStoreMap() {
   if (lookupsEnabled()) rebuildStoreMap();
   refresh();

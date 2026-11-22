@@ -6,6 +6,7 @@ struct ListScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showDone = false
     @AppStorage("showLater") private var showLater = false
+    @State private var laterUndo = LaterUndo()
     @State private var showSettings = false
     @State private var photoFor: Item?          // the item a photo is being taken or chosen for
     @State private var choosingPhoto = false
@@ -16,7 +17,8 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
+                if store.list.laterCount > 0 { laterRow }
+                ForEach(store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep)) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
@@ -39,15 +41,6 @@ struct ListScreen: View {
             .navigationTitle("Shopping")
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if store.list.laterCount > 0 {
-                        Button { withAnimation { showLater.toggle() } } label: {
-                            Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
-                                .labelStyle(.titleAndIcon)
-                        }
-                        .accessibilityLabel(showLater ? "Hide later items" : "Show \(store.list.laterCount) later items")
-                    }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Settings")
@@ -55,6 +48,9 @@ struct ListScreen: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 6) {
+                    if let item = laterUndo.item {
+                        UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store) }
+                    }
                     status
                     AddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
                 }
@@ -99,7 +95,7 @@ struct ListScreen: View {
                     .accessibilityLabel("Photo of \(item.name)")
             }
             if !item.done {
-                Button { store.setLater(item.id, !item.later) } label: {
+                Button { laterUndo.toggle(item, in: store) } label: {
                     Image(systemName: item.later ? "clock.fill" : "clock")
                         .font(.title3)
                         .foregroundStyle(item.later ? Theme.sun : Theme.muted)
@@ -123,7 +119,7 @@ struct ListScreen: View {
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { store.delete(item.id) } label: { Label("Delete", systemImage: "trash") }
-            Button { store.setLater(item.id, !item.later) } label: {
+            Button { laterUndo.toggle(item, in: store) } label: {
                 Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
             }
             .tint(Theme.raised)
@@ -154,6 +150,22 @@ struct ListScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    /// First row of the list: the switch for items left for a later trip.
+    private var laterRow: some View {
+        Button { withAnimation { showLater.toggle() } } label: {
+            HStack {
+                Image(systemName: showLater ? "clock.fill" : "clock").foregroundStyle(Theme.sun)
+                Text(showLater ? "Hide later items" : "Show \(store.list.laterCount) later \(store.list.laterCount == 1 ? "item" : "items")")
+                    .foregroundStyle(Theme.fg)
+                Spacer()
+            }
+            .font(.subheadline.weight(.medium))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(Theme.surface)
     }
 
     private var doneSection: some View {

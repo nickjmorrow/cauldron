@@ -34,10 +34,14 @@ export function storeMapText(map = getStoreMap()): string {
 
 // Reads {"aisles": [{"aisle": "9", "holds": [...]}, ...]} from a research reply; keeps only numbered aisles with contents.
 export function readStoreMap(text: string): { aisle: string; holds: string[] }[] | undefined {
-  const start = text.lastIndexOf('{"aisles"');
-  const body = start === -1 ? text.slice(text.indexOf("{")) : text.slice(start);
+  // The JSON may be on one line or spread over many, inside a code block or not: take the object around the last "aisles".
+  const key = text.lastIndexOf('"aisles"');
+  if (key === -1) return undefined;
+  const open = text.lastIndexOf("{", key);
+  const close = text.lastIndexOf("}");
+  if (open === -1 || close < key) return undefined;
   let parsed: unknown;
-  try { parsed = JSON.parse(body.slice(0, body.lastIndexOf("}") + 1)); } catch { return undefined; }
+  try { parsed = JSON.parse(text.slice(open, close + 1)); } catch { return undefined; }
   const aisles = (parsed as { aisles?: unknown }).aisles;
   if (!Array.isArray(aisles)) return undefined;
   const entries = aisles.flatMap((a) => {

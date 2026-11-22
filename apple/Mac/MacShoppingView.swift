@@ -8,32 +8,39 @@ struct MacShoppingView: View {
     @State private var showDone = false
     @AppStorage("showLater") private var showLater = false
     @State private var viewing: Item?
+    @State private var laterUndo = LaterUndo()
+
+    private var groups: [ItemGroup] { store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep) }
 
     var body: some View {
         VStack(spacing: 0) {
-            List {
-                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
-                    Section(group.title) {
-                        ForEach(group.items) { row($0) }
+            ScrollView {
+                // Plain headings that scroll with the list (a List pins them under the title bar).
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    laterBar
+                    ForEach(groups) { group in
+                        Text(group.title)
+                            .font(.headline).foregroundStyle(Theme.muted)
+                            .padding(.top, 18).padding(.bottom, 6).padding(.horizontal, 4)
+                        card(group.items)
                     }
+                    if !store.list.done.isEmpty { doneSection }
                 }
-                if !store.list.done.isEmpty {
-                    Section {
-                        DisclosureGroup("Done (\(store.list.done.count))", isExpanded: $showDone) {
-                            ForEach(store.list.done) { row($0) }
-                            Button("Clear done", role: .destructive) { store.clearDone() }
-                                .foregroundStyle(Theme.bad)
-                        }
-                    }
-                }
+                .padding(.horizontal, 20).padding(.bottom, 24)
             }
-            .scrollContentBackground(.hidden)
             .overlay {
-                if store.list.visibleGroups(showLater: showLater).isEmpty && store.list.done.isEmpty {
+                if groups.isEmpty && store.list.done.isEmpty {
                     Text(store.list.laterCount > 0 ? "Nothing for this trip. Everything left is for later." : "Nothing on the list.")
                         .foregroundStyle(Theme.muted)
                 }
             }
+            .overlay(alignment: .bottom) {
+                if let item = laterUndo.item {
+                    UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store) }
+                        .padding(.bottom, 14)
+                }
+            }
+            .animation(.snappy, value: laterUndo.item?.id)
             Divider()
             VStack(spacing: 6) {
                 status
@@ -43,17 +50,11 @@ struct MacShoppingView: View {
         }
         .task { await store.sync() }
         .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleLater)) { _ in withAnimation { showLater.toggle() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await store.sync() }
         }
         .toolbar {
-            if store.list.laterCount > 0 {
-                Toggle(isOn: $showLater) {
-                    Label(showLater ? "Hide later" : "Show later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
-                }
-                .toggleStyle(.button)
-                .help("Show or hide items left for a later trip")
-            }
             Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
         }
         .sheet(item: $viewing) { item in
@@ -63,6 +64,52 @@ struct MacShoppingView: View {
                 Button("Done") { viewing = nil }.keyboardShortcut(.defaultAction)
             }
             .padding()
+        }
+    }
+
+    /// At the top of the list: how many items this trip has, and the switch for the later ones (also ⌘L).
+    private var laterBar: some View {
+        let open = store.list.groups.reduce(0) { $0 + $1.items.filter { !$0.later }.count }
+        return HStack {
+            Text(open == 1 ? "1 item this trip" : "\(open) items this trip").foregroundStyle(Theme.muted)
+            Spacer()
+            if store.list.laterCount > 0 {
+                Button { withAnimation { showLater.toggle() } } label: {
+                    Label(showLater ? "Hide later items" : "Show \(store.list.laterCount) later \(store.list.laterCount == 1 ? "item" : "items")",
+                          systemImage: showLater ? "clock.fill" : "clock")
+                }
+                .buttonStyle(.bordered)
+                .help("Show or hide items left for a later trip (⌘L)")
+            }
+        }
+        .padding(.top, 14)
+    }
+
+    /// One group's rows on a rounded card, with hairlines between rows.
+    private func card(_ items: [Item]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 { Divider().overlay(Theme.line).padding(.leading, 44) }
+                row(item).padding(.horizontal, 12)
+            }
+        }
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.line, lineWidth: 1))
+    }
+
+    private var doneSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button { withAnimation { showDone.toggle() } } label: {
+                    Label("Done (\(store.list.done.count))", systemImage: showDone ? "chevron.down" : "chevron.right")
+                        .font(.headline).foregroundStyle(Theme.muted)
+                }
+                .buttonStyle(.plain)
+                Spacer()
+                if showDone { Button("Clear done", role: .destructive) { store.clearDone() }.foregroundStyle(Theme.bad) }
+            }
+            .padding(.top, 18).padding(.horizontal, 4)
+            if showDone { card(store.list.done) }
         }
     }
 
@@ -94,7 +141,7 @@ struct MacShoppingView: View {
                 .accessibilityLabel("Photo of \(item.name)")
             }
             if !item.done {
-                Button { store.setLater(item.id, !item.later) } label: {
+                Button { laterUndo.toggle(item, in: store) } label: {
                     Image(systemName: item.later ? "clock.fill" : "clock")
                         .foregroundStyle(item.later ? Theme.sun : Theme.muted)
                         .frame(width: 28, height: 28)
@@ -107,7 +154,7 @@ struct MacShoppingView: View {
         }
         .padding(.vertical, 5)
         .contextMenu {
-            Button(item.later ? "Move to this trip" : "Move to later") { store.setLater(item.id, !item.later) }
+            Button(item.later ? "Move to this trip" : "Move to later") { laterUndo.toggle(item, in: store) }
             Button("Choose photo…") { choosePhoto(for: item) }
             if item.photo?.isEmpty == false {
                 Button("Remove photo") { Task { await store.removePhoto(item.id) } }

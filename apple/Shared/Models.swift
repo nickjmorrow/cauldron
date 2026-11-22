@@ -36,10 +36,11 @@ struct ShoppingList: Codable, Hashable {
     var done: [Item] = []
 
     /// Marks an item in place, wherever it is, without moving it between sections.
-    /// The groups with "later" items left out unless `showLater`; groups left empty are dropped.
-    func visibleGroups(showLater: Bool) -> [ItemGroup] {
+    /// The groups with "later" items left out unless `showLater` (items in `keep` always stay, so one just set for later
+    /// can still be undone where it is); groups left empty are dropped.
+    func visibleGroups(showLater: Bool, keep: Set<Int> = []) -> [ItemGroup] {
         groups.compactMap { group in
-            let items = showLater ? group.items : group.items.filter { !$0.later }
+            let items = showLater ? group.items : group.items.filter { !$0.later || keep.contains($0.id) }
             return items.isEmpty ? nil : ItemGroup(title: group.title, items: items)
         }
     }

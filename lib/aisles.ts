@@ -91,7 +91,12 @@ Group what you find by aisle number. Include only aisles you found evidence for;
 End your reply with one line of JSON and nothing after it: {"aisles": [{"aisle": "<number>", "holds": ["<kind>", ...]}, ...]}`;
 
 export type BuildMap = (where: string) => Promise<{ aisle: string; holds: string[] }[] | undefined>;
-export const researchStoreMap: BuildMap = async (where) => readStoreMap(await claude(mapPrompt(where), MAP_TIMEOUT_MS));
+export const researchStoreMap: BuildMap = async (where) => {
+  const reply = await claude(mapPrompt(where), MAP_TIMEOUT_MS);
+  const entries = readStoreMap(reply);
+  if (!entries) console.error(`store map research reply had no aisles JSON; it ended: ${reply.slice(-600)}`);
+  return entries;
+};
 
 let building: Promise<number> | undefined;
 // Researches the store map in the background and saves it; then places every item whose aisle is still a guess.
