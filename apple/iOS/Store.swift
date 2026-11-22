@@ -42,6 +42,32 @@ final class Store {
         return API(base: url)
     }
 
+    func photoURL(_ item: Item) -> URL? { api?.photoURL(item) }
+
+    // MARK: Photos (sent at once; a failure is shown, not queued)
+
+    func setPhoto(_ id: Int, jpeg: Data) async {
+        guard let api else { error = "Set the server address in settings."; return }
+        do {
+            try await api.putPhoto(id, jpeg: jpeg)
+            await sync()
+        } catch let refused as Refused {
+            error = "Server refused the photo: \(refused.message)"
+        } catch {
+            self.error = "Can't reach the server, so the photo wasn't saved."
+        }
+    }
+
+    func removePhoto(_ id: Int) async {
+        guard let api else { return }
+        do {
+            try await api.deletePhoto(id)
+            await sync()
+        } catch {
+            self.error = "Can't reach the server, so the photo wasn't removed."
+        }
+    }
+
     // MARK: Changes (shown at once, then sent)
 
     func setDone(_ id: Int, _ done: Bool) {

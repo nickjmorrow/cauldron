@@ -33,6 +33,7 @@ targets:
           NSAllowsLocalNetworking: true
         # Default server, injected from .env at project generation (see generate.sh). Settings overrides it.
         CauldronURL: $(CAULDRON_URL)
+        NSCameraUsageDescription: Take a photo of something on your shopping list.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ${BUNDLE_PREFIX}.cauldron

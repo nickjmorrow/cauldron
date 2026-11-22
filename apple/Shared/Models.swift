@@ -9,6 +9,8 @@ struct Item: Codable, Identifiable, Hashable {
     var later: Bool = false
     var done: Bool = false
     var note: String = ""
+    /// When the item's photo was set, or "" when it has none. Optional so lists saved before photos existed still load.
+    var photo: String? = nil
 }
 
 /// A section of the list ("Aisle 4", "No aisle yet", "Later"). The server sorts and groups; clients show them as given.

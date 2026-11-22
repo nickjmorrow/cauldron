@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 struct ListScreen: View {
@@ -5,6 +6,11 @@ struct ListScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showDone = false
     @State private var showSettings = false
+    @State private var photoFor: Item?          // the item a photo is being taken or chosen for
+    @State private var choosingPhoto = false
+    @State private var takingPhoto = false
+    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var viewing: Item?           // the item whose photo is shown full screen
 
     var body: some View {
         NavigationStack {
@@ -43,6 +49,22 @@ struct ListScreen: View {
                 .background(Theme.bg)
             }
             .sheet(isPresented: $showSettings) { SettingsSheet(store: store) }
+            .photosPicker(isPresented: $choosingPhoto, selection: $pickedPhoto, matching: .images)
+            .onChange(of: pickedPhoto) { _, picked in
+                guard let picked, let item = photoFor else { return }
+                pickedPhoto = nil
+                Task {
+                    if let data = try? await picked.loadTransferable(type: Data.self), let image = UIImage(data: data) { await upload(image, for: item) }
+                }
+            }
+            .fullScreenCover(isPresented: $takingPhoto) {
+                CameraView { image in
+                    takingPhoto = false
+                    if let image, let item = photoFor { Task { await upload(image, for: item) } }
+                }
+                .ignoresSafeArea()
+            }
+            .sheet(item: $viewing) { item in PhotoViewer(url: store.photoURL(item), title: item.name) }
         }
         .task { await store.sync() }
         .onChange(of: scenePhase) { _, phase in
@@ -50,7 +72,41 @@ struct ListScreen: View {
         }
     }
 
+    private func upload(_ image: UIImage, for item: Item) async {
+        guard let jpeg = image.shrunk(toFit: 1600).jpegData(compressionQuality: 0.75) else { return }
+        await store.setPhoto(item.id, jpeg: jpeg)
+    }
+
     private func row(_ item: Item) -> some View {
+        HStack(spacing: 12) {
+            checkButton(item)
+            if let url = store.photoURL(item) {
+                Button { viewing = item } label: { Thumbnail(url: url) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Photo of \(item.name)")
+            }
+        }
+        .listRowBackground(Theme.surface)
+        .listRowSeparatorTint(Theme.line)
+        .contextMenu {
+            if UIImagePickerController.isSourceTypeAvailable(.camera) {
+                Button { photoFor = item; takingPhoto = true } label: { Label("Take photo", systemImage: "camera") }
+            }
+            Button { photoFor = item; choosingPhoto = true } label: { Label("Choose photo", systemImage: "photo") }
+            if item.photo?.isEmpty == false {
+                Button(role: .destructive) { Task { await store.removePhoto(item.id) } } label: { Label("Remove photo", systemImage: "trash") }
+            }
+        }
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) { store.delete(item.id) } label: { Label("Delete", systemImage: "trash") }
+            Button { store.setLater(item.id, !item.later) } label: {
+                Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
+            }
+            .tint(Theme.raised)
+        }
+    }
+
+    private func checkButton(_ item: Item) -> some View {
         Button { store.setDone(item.id, !item.done) } label: {
             HStack(spacing: 14) {
                 CheckMark(done: item.done)
@@ -70,15 +126,6 @@ struct ListScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .listRowBackground(Theme.surface)
-        .listRowSeparatorTint(Theme.line)
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) { store.delete(item.id) } label: { Label("Delete", systemImage: "trash") }
-            Button { store.setLater(item.id, !item.later) } label: {
-                Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
-            }
-            .tint(Theme.raised)
-        }
     }
 
     private var doneSection: some View {
@@ -113,6 +160,79 @@ struct ListScreen: View {
             Text(store.pending.count == 1 ? "1 change waiting" : "\(store.pending.count) changes waiting")
                 .font(.footnote).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+private struct Thumbnail: View {
+    var url: URL
+
+    var body: some View {
+        AsyncImage(url: url) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Theme.raised
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct PhotoViewer: View {
+    var url: URL?
+    var title: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            AsyncImage(url: url) { image in
+                image.resizable().scaledToFit()
+            } placeholder: {
+                ProgressView()
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.bg)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+/// The system camera, for a photo of something on the list. Calls back with nil when cancelled.
+private struct CameraView: UIViewControllerRepresentable {
+    var done: (UIImage?) -> Void
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ picker: UIImagePickerController, context: Context) {}
+    func makeCoordinator() -> Coordinator { Coordinator(done: done) }
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let done: (UIImage?) -> Void
+        init(done: @escaping (UIImage?) -> Void) { self.done = done }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            done(info[.originalImage] as? UIImage)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { done(nil) }
+    }
+}
+
+private extension UIImage {
+    /// A copy no larger than `side` points on its longer edge, so uploads stay small.
+    func shrunk(toFit side: CGFloat) -> UIImage {
+        let scale = min(1, side / max(size.width, size.height))
+        guard scale < 1 else { return self }
+        let target = CGSize(width: size.width * scale, height: size.height * scale)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: target, format: format).image { _ in draw(in: CGRect(origin: .zero, size: target)) }
     }
 }
 

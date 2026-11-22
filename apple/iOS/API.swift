@@ -31,15 +31,31 @@ struct API {
         return try JSONDecoder().decode(ShoppingList.self, from: data)
     }
 
+    func photoURL(_ item: Item) -> URL? {
+        guard let token = item.photo, !token.isEmpty, var parts = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return nil }
+        parts.path = "/api/shopping/\(item.id)/photo"
+        parts.queryItems = [URLQueryItem(name: "v", value: token)]
+        return parts.url
+    }
+
+    /// Photos are sent straight away rather than queued: a big upload waiting in UserDefaults isn't worth it.
+    func putPhoto(_ id: Int, jpeg: Data) async throws {
+        try await call(Write(method: "PUT", path: "/api/shopping/\(id)/photo", body: jpeg), contentType: "image/jpeg", timeout: 60)
+    }
+
+    func deletePhoto(_ id: Int) async throws {
+        try await call(Write(method: "DELETE", path: "/api/shopping/\(id)/photo"))
+    }
+
     @discardableResult
-    func call(_ write: Write) async throws -> Data {
+    func call(_ write: Write, contentType: String = "application/json", timeout: TimeInterval = 8) async throws -> Data {
         guard let url = URL(string: write.path, relativeTo: base) else { throw URLError(.badURL) }
-        var request = URLRequest(url: url, timeoutInterval: 8)
+        var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = write.method
         request.cachePolicy = .reloadIgnoringLocalCacheData
         if let body = write.body {
             request.httpBody = body
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
