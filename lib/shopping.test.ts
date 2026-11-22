@@ -74,3 +74,9 @@ test("clearing hides done items, and the next time one is added it remembers its
   assert.equal(addItem({ name: "Eggs" }).aisle, "");
   removeItem(eggs.id);
 });
+
+test("a deleted item's id is never given to a new item", () => {
+  const first = addItem({ name: "Pears" });
+  removeItem(first.id);
+  assert.ok(addItem({ name: "Plums" }).id > first.id);
+});

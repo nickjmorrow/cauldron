@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS ingredient_locations (
 -- The shopping list. aisle is a number ("4") or a named area ("Produce"); later = not for this trip.
 -- done_at is when it was checked off; cleared = hidden after the trip but kept, so its aisle is remembered.
 CREATE TABLE IF NOT EXISTS shopping_items (
-  id INTEGER PRIMARY KEY,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
   qty TEXT NOT NULL DEFAULT '',
   aisle TEXT NOT NULL DEFAULT '',
@@ -232,6 +232,21 @@ function migrate(db: DatabaseSync) {
   // 1 = cooked now and then, outside the typical day (cookies, a stew), so its ingredients still count as in use.
   const meals = db.prepare("PRAGMA table_info(meals)").all() as { name: string }[];
   if (!meals.some((c) => c.name === "occasional")) db.exec("ALTER TABLE meals ADD COLUMN occasional INTEGER NOT NULL DEFAULT 0;");
+  // Shopping item ids must never be reused: the phone and watch apps may still hold a change for a deleted item.
+  const shopping = db.prepare("SELECT sql FROM sqlite_master WHERE name = 'shopping_items'").get() as { sql: string };
+  if (!shopping.sql.includes("AUTOINCREMENT")) {
+    db.exec("BEGIN");
+    try {
+      db.exec("ALTER TABLE shopping_items RENAME TO shopping_items_old");
+      db.exec(SCHEMA); // recreates shopping_items with AUTOINCREMENT; every other table already exists
+      db.exec("INSERT INTO shopping_items SELECT * FROM shopping_items_old");
+      db.exec("DROP TABLE shopping_items_old");
+      db.exec("COMMIT");
+    } catch (e) {
+      db.exec("ROLLBACK");
+      throw e;
+    }
+  }
   const placements = db.prepare("PRAGMA table_info(ingredient_locations)").all() as { name: string }[];
   if (!placements.some((c) => c.name === "status")) {
     db.exec("ALTER TABLE ingredient_locations ADD COLUMN status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('proposed','approved'));");
