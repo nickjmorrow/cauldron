@@ -28,7 +28,7 @@ export function readAisle(text: string): string | undefined {
 
 const prompt = (name: string, where: string) => `Which aisle is "${name}" in at ${where}?
 
-Search for this exact store. Kroger-family stores (Mariano's is one) show a product's aisle for a chosen store on their own site; store maps and aisle directories help too.
+Search for this exact store. Kroger-family stores show a product's aisle for a chosen store on their own site; store maps and aisle directories help too.
 - If you find this store's aisle number for the item (or a close equivalent product), answer that number.
 - Otherwise answer the store section it is usually in, exactly one of: ${SECTIONS.join(", ")}.
 
