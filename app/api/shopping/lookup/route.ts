@@ -2,6 +2,6 @@
 import { lookUpGuessed, lookupsEnabled } from "../../../../lib/aisles.ts";
 
 export async function POST() {
-  if (!lookupsEnabled()) return Response.json({ error: "Aisle lookups need ANTHROPIC_API_KEY on the server." }, { status: 503 });
+  if (!lookupsEnabled()) return Response.json({ error: "Aisle lookups need the claude command, signed in, on the server (or CAULDRON_AISLE_LOOKUP is off)." }, { status: 503 });
   return Response.json({ started: lookUpGuessed() });
 }

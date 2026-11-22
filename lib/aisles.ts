@@ -1,14 +1,23 @@
-// Looks up which aisle a shopping item is in at your store, with Claude and web search, after the item is added.
-// Needs ANTHROPIC_API_KEY on the server; CAULDRON_STORE names the store (for example "Mariano's, <neighborhood>, <city>").
+// Looks up which aisle a shopping item is in at your store, after the item is added, with the `claude` command
+// (Claude Code, signed in on the server; it uses that subscription, no API key) and its web search.
+// CAULDRON_STORE names the store (for example "Mariano's, <neighborhood>, <city>"); CAULDRON_AISLE_LOOKUP=off turns lookups off.
 // Until the lookup answers, the item sits under a section guessed from its name (lib/sections.ts).
-import Anthropic from "@anthropic-ai/sdk";
+import { execFile, execFileSync } from "node:child_process";
+import { promisify } from "node:util";
 import { SECTIONS } from "./sections.ts";
 import { addItem, cleanAisle, finishLookup, guessedItems, markLookingUp, type ItemChange, type ShoppingItem } from "./shopping.ts";
 
-const MODEL = "claude-opus-5-5";
-const MAX_CONTINUES = 3; // server tool loops can pause; each resume carries on where it stopped
+const run = promisify(execFile);
+const LOOKUP_TIMEOUT_MS = 180_000;
 
-export const lookupsEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY);
+let hasClaude: boolean | undefined;
+export const lookupsEnabled = () => {
+  if (process.env.CAULDRON_AISLE_LOOKUP === "off") return false;
+  if (hasClaude === undefined) {
+    try { execFileSync("claude", ["--version"], { stdio: "ignore", timeout: 10_000 }); hasClaude = true; } catch { hasClaude = false; }
+  }
+  return hasClaude;
+};
 const store = () => process.env.CAULDRON_STORE?.trim() || "a typical US grocery store";
 
 // One item's aisle: a number when the store's own aisle was found, else one of SECTIONS. Undefined when there was no usable answer.
@@ -35,30 +44,15 @@ Search for this exact store. Kroger-family stores show a product's aisle for a c
 End your reply with one line of JSON and nothing after it: {"aisle": "<number or section>"}`;
 
 export const askClaude: AskAisle = async (name, where) => {
-  const client = new Anthropic();
-  const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: prompt(name, where) }];
-  for (let turn = 0; turn <= MAX_CONTINUES; turn++) {
-    const response = await client.beta.messages.create({
-      model: MODEL,
-      max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: { effort: "low" },
-      tools: [
-        { type: "web_search_20260209", name: "web_search", max_uses: 4 },
-        { type: "web_fetch_20260209", name: "web_fetch", max_uses: 3 },
-      ],
-      messages,
-    });
-    if (response.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: response.content });
-      continue;
-    }
-    if (response.stop_reason === "refusal") return undefined;
-    const text = response.content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
-    return readAisle(text);
-  }
-  return undefined;
+  const { stdout } = await run(
+    "claude",
+    ["-p", prompt(name, where), "--output-format", "json", "--allowedTools", "WebSearch", "WebFetch", "--strict-mcp-config",
+      "--disable-slash-commands", "--setting-sources", "", "--no-session-persistence", "--model", "sonnet"],
+    { cwd: "data", maxBuffer: 10 * 1024 * 1024, timeout: LOOKUP_TIMEOUT_MS },
+  );
+  const reply = JSON.parse(stdout) as { result: string; is_error: boolean };
+  if (reply.is_error) throw new Error(`claude failed: ${reply.result}`);
+  return readAisle(reply.result);
 };
 
 // Looks up one item and stores the answer. Never throws: a failed lookup leaves the guessed section.

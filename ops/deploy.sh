@@ -2,8 +2,8 @@
 # Run on your own machine: test, copy the repo to the server, install and build there, (re)start the service.
 # The server is the ssh host in CAULDRON_DEPLOY_HOST, set in the gitignored .env.local or the environment.
 # First run also installs the launchd agents (the server and the nightly ops/backup.sh) and a tailnet-only `tailscale serve` on CAULDRON_SERVE_PORT.
-# .env.local is copied along with the code, so the server gets the same settings. Server-only secrets
-# (ANTHROPIC_API_KEY) go in the server's own .env.production.local, which deploys never copy or delete.
+# .env.local is copied along with the code, so the server gets the same settings. Server-only settings
+# go in the server's own .env.production.local, which deploys never copy or delete.
 # The database (data/) is never copied or touched: the server keeps its own. Seed it once by hand (see README).
 set -euo pipefail
 cd "${0:A:h}/.."
