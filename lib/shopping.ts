@@ -3,6 +3,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDb, PHOTOS_DIR } from "./db.ts";
+import { guessSection, sectionRank } from "./sections.ts";
 
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
 export type ShoppingItem = { id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string; photo: string };
@@ -40,12 +41,12 @@ function cleanAisle(text: string): string {
   return /^\d+$/.test(aisle) ? String(Number(aisle)) : aisle;
 }
 
-// Numbered aisles in walking order, then named areas A to Z, then items with no aisle.
+// Numbered aisles in walking order, then store sections in walking order, then other named areas A to Z, then items with no aisle.
 function compareAisles(a: string, b: string): number {
   const rank = (x: string) => (x === "" ? 2 : /^\d+$/.test(x) ? 0 : 1);
   if (rank(a) !== rank(b)) return rank(a) - rank(b);
   if (rank(a) === 0) return Number(a) - Number(b);
-  return a.localeCompare(b, undefined, { sensitivity: "base" });
+  return sectionRank(a) - sectionRank(b) || a.localeCompare(b, undefined, { sensitivity: "base" });
 }
 
 // This trip's items by aisle, then the later pile; done items are listed apart. Empty groups are left out.
@@ -107,7 +108,7 @@ function rememberedPhoto(name: string): { id: number; photo_type: string } | und
 const photoPath = (id: number) => join(PHOTOS_DIR, String(id));
 
 export function addItem(change: ItemChange & { name: string }): ShoppingItem {
-  const aisle = change.aisle || rememberedAisle(change.name);
+  const aisle = change.aisle || rememberedAisle(change.name) || guessSection(change.name);
   const photo = rememberedPhoto(change.name);
   const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, later, note, done_at) VALUES (?, ?, ?, ?, ?, ?)")
     .run(change.name, change.qty ?? "", aisle, change.later ? 1 : 0, change.note ?? "", change.done ? new Date().toISOString() : null);

@@ -14,7 +14,7 @@ You describe one **base day** (the meals you usually eat, with variations), and 
 - **Targets**: calorie and macro targets for all three goals from your profile, plus which nutrients may run over and by how much.
 - **AI proposals with review**: describe what you want in words and the `claude` CLI maps it to ingredient searches, meals, liked foods or kitchen placements. Ingredient nutrients come from USDA FoodData Central. Everything lands as *proposed* and counts only after you approve it on the Review page.
 - **Kitchen**: name the places food lives (pantry, fridge shelves, freezer) and see where each ingredient is kept.
-- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. Items can carry a photo (of the exact product, say). An item remembers its aisle and photo the next time it's added. A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
+- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. Items can carry a photo (of the exact product, say). An item remembers its aisle and photo the next time it's added; with no aisle known, it goes under a store section guessed from its name (Produce, Dairy & eggs, Pantry and so on, in walking order). A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
 
 ## How it works
 
@@ -93,6 +93,8 @@ cp .env.example .env   # server URL, Apple team ID, bundle ID prefix
 
 Then open `Cauldron.xcodeproj` and run the `Cauldron` scheme on a phone that has a paired watch.
 
+The `CauldronMac` scheme is the Mac app: a sidebar with the native shopping list (the same sync code as the phone) and the planner pages, which are the server's web pages shown inside the app until they get native screens. Build it with `xcodebuild -scheme CauldronMac -configuration Release` and copy `Cauldron.app` to `/Applications`.
+
 ### Configuration
 
 | Variable | Purpose | Default |
@@ -127,6 +129,7 @@ lib/                  domain logic and data access, with tests alongside (*.test
   solver.ts fixes.ts  suggested fixes
   ai.ts usda.ts       AI proposals and USDA lookups
   shopping.ts         shopping list: grouping by aisle, input checks, storage
+  sections.ts         store sections guessed from an item's name, in walking order
 apple/                iPhone and Apple Watch client for the shopping list (SwiftUI, XcodeGen)
 scripts/
   import-xlsx.ts      one-time spreadsheet import

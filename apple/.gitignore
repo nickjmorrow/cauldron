@@ -3,6 +3,7 @@
 # Written by ./generate.sh
 iOS/Info.plist
 Watch/Info.plist
+Mac/Info.plist
 build*/
 *.noindex/
 DerivedData/

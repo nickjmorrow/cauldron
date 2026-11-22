@@ -1,53 +1,54 @@
 @import "@fontsource-variable/instrument-sans";
 @import "@fontsource/instrument-serif";
 
-/* Midnight sun palette: deep indigo surfaces with one warm gold accent.
-   Roles: sun = the one action color; rose glow = "proposed by AI, awaiting you";
-   good / close / bad = nutrient verdicts (teal, orange, coral differ in hue and lightness). */
+/* Cauldron palette, taken from the app icon's engraved fire plate: an oxblood ground, cream text,
+   brass for the one action colour (and selection), vermilion for "proposed by AI, awaiting you".
+   good / close / bad = nutrient verdicts (verdigris, amber, rose differ in hue and lightness).
+   Token names are kept from the first palette: --sun is the accent. */
 :root {
   color-scheme: light dark;
   --font-ui: "Instrument Sans Variable", system-ui, sans-serif;
   --font-display: "Instrument Serif", Georgia, serif;
 
-  --bg: oklch(0.975 0.014 85);
-  --surface: oklch(0.995 0.006 85);
-  --raised: oklch(0.945 0.022 85);
-  --line: oklch(0.88 0.03 85);
-  --fg: oklch(0.25 0.06 275);
-  --muted: oklch(0.47 0.05 275);
-  --sun: oklch(0.81 0.16 78);
-  --sun-ink: oklch(0.24 0.06 275);
-  --link: oklch(0.45 0.13 60);
-  --glow: oklch(0.62 0.17 15);
-  --proposed: oklch(0.955 0.03 335);
-  --good: oklch(0.45 0.11 170);
-  --close: oklch(0.5 0.12 55);
-  --bad: oklch(0.5 0.18 20);
-  --focus: oklch(0.5 0.17 275);
-  --protein: oklch(0.52 0.09 205);
-  --carbs: oklch(0.8 0.13 82);
-  --fat: oklch(0.55 0.12 335);
+  --bg: oklch(0.965 0.014 78);
+  --surface: oklch(0.99 0.007 80);
+  --raised: oklch(0.935 0.02 74);
+  --line: oklch(0.865 0.028 66);
+  --fg: oklch(0.26 0.055 22);
+  --muted: oklch(0.47 0.045 32);
+  --sun: oklch(0.74 0.115 80);
+  --sun-ink: oklch(0.22 0.05 22);
+  --link: oklch(0.47 0.13 42);
+  --glow: oklch(0.6 0.16 40);
+  --proposed: oklch(0.95 0.03 50);
+  --good: oklch(0.46 0.08 175);
+  --close: oklch(0.52 0.12 62);
+  --bad: oklch(0.5 0.17 18);
+  --focus: oklch(0.47 0.13 42);
+  --protein: oklch(0.5 0.08 215);
+  --carbs: oklch(0.72 0.12 82);
+  --fat: oklch(0.54 0.11 345);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: oklch(0.17 0.045 275);
-    --surface: oklch(0.215 0.05 275);
-    --raised: oklch(0.265 0.055 275);
-    --line: oklch(0.33 0.05 275);
-    --fg: oklch(0.94 0.015 270);
-    --muted: oklch(0.74 0.04 270);
-    --sun: oklch(0.83 0.15 78);
-    --sun-ink: oklch(0.2 0.05 275);
-    --link: oklch(0.85 0.13 80);
-    --glow: oklch(0.74 0.14 15);
-    --proposed: oklch(0.25 0.06 325);
-    --good: oklch(0.82 0.12 175);
-    --close: oklch(0.82 0.13 62);
-    --bad: oklch(0.76 0.15 18);
-    --focus: oklch(0.85 0.13 80);
-    --protein: oklch(0.72 0.09 205);
-    --carbs: oklch(0.82 0.12 82);
-    --fat: oklch(0.72 0.11 335);
+    --bg: oklch(0.165 0.028 20);
+    --surface: oklch(0.205 0.033 21);
+    --raised: oklch(0.25 0.038 23);
+    --line: oklch(0.325 0.038 28);
+    --fg: oklch(0.925 0.028 84);
+    --muted: oklch(0.75 0.035 70);
+    --sun: oklch(0.78 0.105 82);
+    --sun-ink: oklch(0.2 0.04 20);
+    --link: oklch(0.83 0.1 80);
+    --glow: oklch(0.7 0.145 42);
+    --proposed: oklch(0.26 0.06 38);
+    --good: oklch(0.79 0.085 172);
+    --close: oklch(0.81 0.13 62);
+    --bad: oklch(0.74 0.14 15);
+    --focus: oklch(0.83 0.1 80);
+    --protein: oklch(0.74 0.075 210);
+    --carbs: oklch(0.82 0.11 85);
+    --fat: oklch(0.73 0.1 345);
   }
 }
 
@@ -62,6 +63,7 @@ body {
 ::placeholder { color: var(--muted); opacity: 0.8; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
 a { color: var(--link); text-underline-offset: 3px; }
+input[type="checkbox"] { accent-color: var(--sun); width: 17px; height: 17px; margin: 0; }
 
 .topbar { display: flex; align-items: center; gap: 28px; padding: 14px 24px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 9px; font: 26px/1 var(--font-display); color: var(--fg); text-decoration: none; }
@@ -172,7 +174,7 @@ input[type="search"] { min-width: 240px; }
 .select-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
 .select-pop { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 100%; width: max-content; max-width: min(420px, 90vw);
   background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 6px;
-  box-shadow: 0 14px 34px -10px oklch(0.1 0.05 275 / 0.55), 0 2px 6px oklch(0.1 0.05 275 / 0.25); animation: pop 140ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  box-shadow: 0 14px 34px -10px oklch(0.1 0.04 20 / 0.55), 0 2px 6px oklch(0.1 0.04 20 / 0.25); animation: pop 140ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .select-pop.up { top: auto; bottom: calc(100% + 6px); }
 @keyframes pop { from { opacity: 0; transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .select-pop { animation: none; } }
@@ -416,17 +418,28 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 
 /* Shopping list: rows big enough to tap with a thumb while walking. */
 .shop-add input[name="name"] { flex: 1 1 220px; }
+@media (max-width: 560px) {
+  .shop-add { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .shop-add input:not([type="checkbox"]) { min-width: 0 !important; width: 100%; }
+  .shop-add label { min-height: 44px; }
+  .shop-add input[name="name"] { grid-column: 1 / -1; }
+  .shop-add .primary { justify-self: stretch; }
+}
 .shop-group h2 { margin-bottom: 6px; }
 .shop-list { list-style: none; margin: 0 0 18px; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
 .shop-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; flex-wrap: wrap; }
 .shop-item + .shop-item { border-top: 1px solid var(--line); }
-.shop-check { width: 34px; height: 34px; min-height: 0; padding: 0; border-radius: 50%; border-width: 2px; border-color: var(--muted); display: grid; place-items: center; }
+.shop-check { width: 30px; height: 30px; min-height: 0; padding: 0; border-radius: 7px; border-width: 2px; border-color: var(--muted); display: grid; place-items: center; }
 .is-done .shop-check { background: var(--sun); border-color: var(--sun); color: var(--sun-ink); }
 .shop-text { flex: 1; min-width: 0; display: grid; }
 .shop-name { font-size: 17px; overflow-wrap: anywhere; }
 .is-done .shop-name { color: var(--muted); text-decoration: line-through; }
 .shop-detail { font-size: 13px; }
-.shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; }
+.shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; min-height: 40px; display: inline-flex; align-items: center; gap: 7px; list-style: none; border-radius: 6px; }
+.shop-edit summary::-webkit-details-marker { display: none; }
+.shop-edit summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }
+.shop-edit[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+.shop-edit summary:hover { color: var(--fg); }
 .shop-edit[open] { flex-basis: 100%; }
 .shop-edit-body { display: grid; gap: 8px; padding: 4px 0 8px 46px; }
 .shop-group > .row { justify-content: space-between; align-items: baseline; }

@@ -36,11 +36,14 @@ final class Store {
         set { defaults.set(newValue.trimmingCharacters(in: .whitespaces), forKey: "serverURL") }
     }
 
-    private var api: API? {
+    /// The server in use: the override if set, else the built-in address. Nil when neither is a usable URL.
+    var serverURL: URL? {
         let text = serverOverride.isEmpty ? Self.defaultServerURL : serverOverride
         guard let url = URL(string: text), url.scheme != nil, url.host != nil else { return nil }
-        return API(base: url)
+        return url
     }
+
+    private var api: API? { serverURL.map { API(base: $0) } }
 
     func photoURL(_ item: Item) -> URL? { api?.photoURL(item) }
 

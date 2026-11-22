@@ -41,6 +41,27 @@ targets:
         PRODUCT_NAME: Cauldron
         CAULDRON_URL: ${CAULDRON_URL}
         TARGETED_DEVICE_FAMILY: "1"
+  CauldronMac:
+    type: application
+    platform: macOS
+    # The shopping list's store and API are shared with the iPhone app; the rest is Mac-only.
+    sources: [Mac, Shared, iOS/Store.swift, iOS/API.swift]
+    info:
+      path: Mac/Info.plist
+      properties:
+        CFBundleDisplayName: Cauldron
+        LSApplicationCategoryType: public.app-category.healthcare-fitness
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+        CauldronURL: $(CAULDRON_URL)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ${BUNDLE_PREFIX}.cauldron.mac
+        PRODUCT_NAME: Cauldron
+        CAULDRON_URL: ${CAULDRON_URL}
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
   CauldronWatch:
     type: application
     platform: watchOS

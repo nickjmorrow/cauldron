@@ -75,8 +75,14 @@ test("clearing hides done items, and the next time one is added it remembers its
   assert.deepEqual(listItems().map((i) => i.name), ["Eggs"]);
   assert.equal(addItem({ name: "chicken broth" }).aisle, "6");
   assert.equal(addItem({ name: "Chicken broth", aisle: "9" }).aisle, "9"); // a given aisle wins
-  assert.equal(addItem({ name: "Eggs" }).aisle, "");
+  assert.equal(addItem({ name: "Eggs" }).aisle, "Dairy & eggs"); // no aisle given or remembered: its store section
+  assert.equal(addItem({ name: "Mystery thing" }).aisle, "");
   removeItem(eggs.id);
+});
+
+test("store sections sort in walking order, before other named areas", () => {
+  const list = groupItems([item("Spatula", "Kitchen"), item("Hummus", "Deli"), item("Celery", "Produce"), item("Sponges", "Household"), item("Rice", "3")]);
+  assert.deepEqual(list.groups.map((g) => g.title), ["Aisle 3", "Produce", "Deli", "Household", "Kitchen"]);
 });
 
 test("a deleted item's id is never given to a new item", () => {
