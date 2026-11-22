@@ -13,6 +13,8 @@ test("the answer is read from the last JSON line, as an aisle number or a known 
   assert.equal(readAisle('Usually produce.\n{"aisle": "produce"}'), "Produce");
   assert.equal(readAisle('{"aisle": "Somewhere near the back"}'), undefined);
   assert.equal(readAisle("no json here"), undefined);
+  assert.equal(readAisle(`{"aisle": "unknown"}`), undefined);
+  assert.equal(readAisle(`{"aisle": "Pantry"}`), undefined); // not a real area
 });
 
 test("a lookup stores what Claude found, and a failure keeps the guess", async () => {

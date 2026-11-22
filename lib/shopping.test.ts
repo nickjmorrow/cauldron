@@ -81,8 +81,8 @@ test("clearing hides done items, and the next time one is added it remembers its
 });
 
 test("store sections sort in walking order, before other named areas", () => {
-  const list = groupItems([item("Spatula", "Kitchen"), item("Hummus", "Deli"), item("Celery", "Produce"), item("Sponges", "Household"), item("Rice", "3")]);
-  assert.deepEqual(list.groups.map((g) => g.title), ["Aisle 3", "Produce", "Deli", "Household", "Kitchen"]);
+  const list = groupItems([item("Spatula", "Kitchen"), item("Hummus", "Deli"), item("Celery", "Produce"), item("Aspirin", "Pharmacy"), item("Rice", "3")]);
+  assert.deepEqual(list.groups.map((g) => g.title), ["Aisle 3", "Produce", "Deli", "Kitchen", "Pharmacy"]);
 });
 
 test("a deleted item's id is never given to a new item", () => {
@@ -143,7 +143,7 @@ test("a finished lookup sets the store's aisle, unless the aisle was set by hand
   updateItem(b.id, { aisle: "3" });
   assert.deepEqual(pick(finishLookup(b.id, "12")!), ["3", "you", false]);
   const c = addItem({ name: "Ketchup" }, { lookUp: true });
-  assert.deepEqual(pick(finishLookup(c.id, undefined)!), ["Condiments & sauces", "guess", false]); // failed: the guess stays
+  assert.deepEqual(pick(finishLookup(c.id, undefined)!), ["", "guess", false]); // nothing found: no aisle yet
   markLookingUp(c.id);
 });
 

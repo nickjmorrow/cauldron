@@ -37,11 +37,13 @@ export function readAisle(text: string): string | undefined {
 
 const prompt = (name: string, where: string) => `Which aisle is "${name}" in at ${where}?
 
-Search for this exact store. Kroger-family stores show a product's aisle for a chosen store on their own site; store maps and aisle directories help too.
-- If you find this store's aisle number for the item (or a close equivalent product), answer that number.
-- Otherwise answer the store section it is usually in, exactly one of: ${SECTIONS.join(", ")}.
+Search for this exact store. Kroger-family stores show a product's aisle for a chosen store on their own product pages; store maps and aisle directories help too.
+The only named areas in this store are the departments around the edge: ${SECTIONS.join(", ")}. Everything else is in a numbered aisle; there is no "pantry", "condiments" or "household" area.
+- If the item is sold in one of those departments, answer that department.
+- Otherwise answer this store's aisle number for the item (or a close equivalent product).
+- If you can't find this store's aisle number, answer "unknown". Never guess a number or name an area that isn't in the list.
 
-End your reply with one line of JSON and nothing after it: {"aisle": "<number or section>"}`;
+End your reply with one line of JSON and nothing after it: {"aisle": "<department, number, or unknown>"}`;
 
 export const askClaude: AskAisle = async (name, where) => {
   const { stdout } = await run(

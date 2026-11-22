@@ -1,4 +1,4 @@
-import { SECTIONS } from "./sections.ts";
+import { RETIRED_SECTIONS, SECTIONS } from "./sections.ts";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 
@@ -270,6 +270,9 @@ function migrate(db: DatabaseSync) {
     const sections = SECTIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(", ");
     db.exec(`UPDATE shopping_items SET aisle_from = 'guess' WHERE aisle IN (${sections})`);
   }
+  // Made-up areas ("Pantry", "Household"...) aren't places in the store: those items have no aisle until one is known.
+  const retired = RETIRED_SECTIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(", ");
+  db.exec(`UPDATE shopping_items SET aisle = '', aisle_from = 'guess' WHERE aisle IN (${retired}) AND aisle_from != 'you'`);
   const placements = db.prepare("PRAGMA table_info(ingredient_locations)").all() as { name: string }[];
   if (!placements.some((c) => c.name === "status")) {
     db.exec("ALTER TABLE ingredient_locations ADD COLUMN status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('proposed','approved'));");

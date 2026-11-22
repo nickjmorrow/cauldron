@@ -1,23 +1,27 @@
-// Store sections for shopping items that have no aisle yet, in the order a trip usually walks a grocery store.
-// A guess from the item's name; an aisle typed by hand (or remembered from last time) always wins.
-export const SECTIONS = [
-  "Produce", "Bakery", "Deli", "Meat & seafood", "Dairy & eggs", "Frozen", "Pantry",
-  "Condiments & sauces", "Baking & spices", "Snacks", "Drinks", "Household",
-] as const;
+// Named store areas for shopping items with no aisle number yet, in the order a trip usually walks the store.
+// Only the departments around the edge of a grocery store are real named areas; everything in the middle of the
+// store is in a numbered aisle, so a middle-of-store item has no area until its aisle number is known (typed by
+// hand, remembered from last time, or looked up: lib/aisles.ts).
+export const SECTIONS = ["Produce", "Bakery", "Deli", "Meat & seafood", "Dairy & eggs", "Frozen"] as const;
 
-// First match wins, so the more specific words come first ("rice vinegar" before "rice", "chicken broth" before "chicken").
-const RULES: [section: (typeof SECTIONS)[number], words: string[]][] = [
-  ["Household", ["cleaner", "sponge", "brush", "detergent", "paper towel", "toilet paper", "trash bag", "dish soap", "foil", "plastic wrap"]],
+// Names used before only real areas were kept. An item still filed under one of these has no real aisle.
+export const RETIRED_SECTIONS = ["Pantry", "Condiments & sauces", "Baking & spices", "Snacks", "Drinks", "Household"];
+
+const MIDDLE = ""; // a middle-of-store item: numbered aisle, not known from the name alone
+
+// First match wins, so the more specific words come first ("tomato paste" is a middle-of-store item, not produce;
+// "chicken broth" is not meat).
+const RULES: [area: string, words: string[]][] = [
+  [MIDDLE, ["cleaner", "sponge", "brush", "detergent", "paper towel", "toilet paper", "trash bag", "dish soap", "foil", "plastic wrap",
+    "vinegar", "soy sauce", "sriracha", "hot sauce", "ketchup", "mustard", "mayo", "syrup", "honey", "oil", "pickled", "salsa",
+    "dressing", "juice", "paste", "broth", "stock", "stuffing", "canned", "beans", "rice", "pasta", "noodle", "oats", "cereal",
+    "lentil", "quinoa", "baking", "flour", "sugar", "seeds", "spice", "cinnamon", "salt", "pepper flakes", "peppercorn", "vanilla",
+    "yeast", "cocoa", "chips", "crackers", "nuts", "popcorn", "pretzel", "water", "soda", "coffee", "tea", "seltzer"]],
   ["Frozen", ["frozen", "ice cream"]],
-  ["Condiments & sauces", ["vinegar", "soy sauce", "sriracha", "hot sauce", "ketchup", "mustard", "mayo", "syrup", "honey", "oil", "pickled", "salsa", "dressing", "juice"]],
-  ["Pantry", ["paste", "broth", "stock", "stuffing", "canned", "beans", "rice", "pasta", "noodle", "oats", "cereal", "lentil", "quinoa"]],
-  ["Baking & spices", ["baking", "flour", "sugar", "seeds", "spice", "cinnamon", "salt", "pepper flakes", "peppercorn", "vanilla", "yeast", "cocoa"]],
   ["Dairy & eggs", ["egg", "butter", "milk", "cheese", "yogurt", "cream"]],
   ["Meat & seafood", ["turkey", "chicken", "beef", "pork", "salmon", "shrimp", "fish", "bacon", "sausage", "steak"]],
   ["Deli", ["hummus", "deli", "sliced"]],
   ["Bakery", ["bread", "bagel", "bun", "tortilla", "roll"]],
-  ["Snacks", ["chips", "crackers", "nuts", "popcorn", "pretzel"]],
-  ["Drinks", ["water", "soda", "coffee", "tea", "seltzer"]],
   ["Produce", ["celery", "parsley", "sage", "thyme", "rosemary", "basil", "mint", "cilantro", "garlic", "onion", "scallion", "shallot",
     "avocado", "apple", "clementine", "orange", "lemon", "lime", "banana", "berries", "grape", "cucumber", "tomato", "potato", "carrot",
     "lettuce", "spinach", "kale", "pepper", "jalapeño", "ginger", "mushroom", "broccoli", "zucchini", "squash"]],
