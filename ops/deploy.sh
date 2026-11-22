@@ -12,7 +12,7 @@ serve_port=${CAULDRON_SERVE_PORT:-8456}
 npm test
 rsync -az --delete \
   --exclude node_modules --exclude .next --exclude .git --exclude data --exclude tsconfig.tsbuildinfo \
-  --exclude .claude --exclude .dashboard --exclude .impeccable --exclude .DS_Store \
+  --exclude apple --exclude .claude --exclude .dashboard --exclude .impeccable --exclude .DS_Store \
   --exclude CLAUDE.local.md --exclude docs/superpowers --exclude docs/morning-notes.md --exclude 'scripts/peek*.mjs' \
   ./ "${host}:Projects/cauldron/"
 ssh "$host" "zsh -lc '
