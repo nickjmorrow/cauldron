@@ -1,0 +1,10 @@
+.env
+*.xcodeproj
+# Written by ./generate.sh
+iOS/Info.plist
+Watch/Info.plist
+build*/
+*.noindex/
+DerivedData/
+xcuserdata/
+.DS_Store

@@ -77,6 +77,18 @@ echo 'CAULDRON_DEPLOY_HOST=my-server' >> .env.local
 
 The script never copies or changes `data/`. To start the server with your existing data, copy `data/cauldron.db` there once, before the first deploy. After that the server's database is the one to use; a second copy edited elsewhere will drift.
 
+### Phone and watch app
+
+`apple/` holds a small native iPhone app with an Apple Watch app inside it, a client for the shopping list API. The phone talks to the server; the watch gets the list from the phone (WatchConnectivity), so it works anywhere the phone can reach the server and shows the last list it had when it can't. Check-offs made while offline are queued and sent later.
+
+```sh
+cd apple
+cp .env.example .env   # server URL, Apple team ID, bundle ID prefix
+./generate.sh          # needs XcodeGen; writes Cauldron.xcodeproj
+```
+
+Then open `Cauldron.xcodeproj` and run the `Cauldron` scheme on a phone that has a paired watch.
+
 ### Configuration
 
 | Variable | Purpose | Default |
@@ -110,6 +122,7 @@ lib/                  domain logic and data access, with tests alongside (*.test
   solver.ts fixes.ts  suggested fixes
   ai.ts usda.ts       AI proposals and USDA lookups
   shopping.ts         shopping list: grouping by aisle, input checks, storage
+apple/                iPhone and Apple Watch client for the shopping list (SwiftUI, XcodeGen)
 scripts/
   import-xlsx.ts      one-time spreadsheet import
 CLAUDE.md             notes for AI coding assistants working in this repo

@@ -1,0 +1,128 @@
+import Foundation
+import Observation
+
+/// The phone's copy of the list, the queue of changes not yet on the server, and the server address.
+@MainActor @Observable
+final class Store {
+    private(set) var list = ShoppingList()
+    private(set) var updated: Date?
+    private(set) var error: String?
+    private(set) var pending: [Write] = []
+    /// Called whenever the list changes, so it can be relayed to the Watch.
+    @ObservationIgnored var onChange: (ShoppingList, Date) -> Void = { _, _ in }
+
+    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private var syncing = false
+    @ObservationIgnored private var syncAgain = false
+
+    init() {
+        if let data = defaults.data(forKey: "pending"), let saved = try? JSONDecoder().decode([Write].self, from: data) {
+            pending = saved
+        }
+        if let data = defaults.data(forKey: "list"), let saved = try? JSONDecoder().decode(ShoppingList.self, from: data) {
+            list = saved
+            updated = defaults.object(forKey: "updated") as? Date
+        }
+    }
+
+    // MARK: Server address
+
+    /// From Info.plist, which generate.sh fills from .env.
+    static let defaultServerURL = (Bundle.main.object(forInfoDictionaryKey: "CauldronURL") as? String) ?? ""
+
+    /// The override typed into settings; empty means use the default.
+    var serverOverride: String {
+        get { defaults.string(forKey: "serverURL") ?? "" }
+        set { defaults.set(newValue.trimmingCharacters(in: .whitespaces), forKey: "serverURL") }
+    }
+
+    private var api: API? {
+        let text = serverOverride.isEmpty ? Self.defaultServerURL : serverOverride
+        guard let url = URL(string: text), url.scheme != nil, url.host != nil else { return nil }
+        return API(base: url)
+    }
+
+    // MARK: Changes (shown at once, then sent)
+
+    func setDone(_ id: Int, _ done: Bool) {
+        list.update(id) { $0.done = done }
+        submit(.patch(id, ["done": done]))
+    }
+
+    func setLater(_ id: Int, _ later: Bool) {
+        list.update(id) { $0.later = later }
+        submit(.patch(id, ["later": later]))
+    }
+
+    func delete(_ id: Int) {
+        list.remove(id)
+        submit(.delete(id))
+    }
+
+    func add(name: String, aisle: String, later: Bool) {
+        submit(.add(name: name, aisle: aisle, later: later))
+    }
+
+    func clearDone() {
+        list.done.removeAll { $0.done }
+        submit(.clearDone)
+    }
+
+    private func submit(_ write: Write) {
+        pending.append(write)
+        savePending()
+        onChange(list, updated ?? .now)
+        Task { await sync() }
+    }
+
+    // MARK: Sync
+
+    /// Sends waiting changes in order, then fetches the list. One run at a time; a call during a run asks for one more.
+    func sync() async {
+        if syncing { syncAgain = true; return }
+        syncing = true
+        defer { syncing = false }
+        repeat {
+            syncAgain = false
+            await syncOnce()
+        } while syncAgain
+    }
+
+    private func syncOnce() async {
+        guard let api else { error = "Set the server address in settings."; return }
+        while let next = pending.first {
+            do {
+                try await api.call(next)
+            } catch let refused as Refused {
+                // The server said no (e.g. the item is already gone); retrying would never succeed, so drop it.
+                if refused.status != 404 { error = "Server refused a change: \(refused.message)" }
+            } catch {
+                self.error = "Can't reach the server."
+                return
+            }
+            pending.removeFirst()
+            savePending()
+        }
+        do {
+            let fresh = try await api.list()
+            // A change made while the fetch was in flight is newer than this answer; the next run will fetch again.
+            guard pending.isEmpty else { syncAgain = true; return }
+            list = fresh
+            updated = .now
+            error = nil
+            defaults.set(try? JSONEncoder().encode(fresh), forKey: "list")
+            defaults.set(updated, forKey: "updated")
+            onChange(fresh, updated ?? .now)
+        } catch is Refused {
+            error = "The server answered with an error."
+        } catch is DecodingError {
+            error = "The server sent something unexpected."
+        } catch {
+            self.error = "Can't reach the server."
+        }
+    }
+
+    private func savePending() {
+        defaults.set(try? JSONEncoder().encode(pending), forKey: "pending")
+    }
+}
