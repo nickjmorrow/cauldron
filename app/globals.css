@@ -458,13 +458,18 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
 .spinner { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid currentColor; border-right-color: transparent; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
+/* Adding and the later switch stay in reach while scrolling the list. */
+.shop-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+  margin: 0 -24px 8px; padding: 12px 24px; background: color-mix(in oklch, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.shop-bar .shop-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 520px; }
+.shop-bar .shop-later-toggle, .shop-bar .shop-undo { margin: 0; }
 .shop-map { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
 .shop-map summary { cursor: pointer; font-weight: 500; }
 .shop-map-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0; font-size: 14px; }
 .shop-map-list div { display: contents; }
 .shop-map-list dt { font-weight: 500; }
 .shop-map-list dd { margin: 0; color: var(--muted); }
-.shop-map button { display: inline-flex; align-items: center; gap: 8px; }
 .shop-undo { display: flex; align-items: center; gap: 12px; margin: 4px 0 10px; padding: 8px 14px; width: fit-content; border-radius: 999px;
   background: var(--raised); border: 1px solid var(--line); font-size: 14px; }
 .shop-undo .link { color: var(--sun); font-weight: 600; }

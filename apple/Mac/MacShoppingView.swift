@@ -15,10 +15,11 @@ struct MacShoppingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            topBar
+            Divider()
             ScrollView {
                 // Plain headings that scroll with the list (a List pins them under the title bar).
                 LazyVStack(alignment: .leading, spacing: 0) {
-                    laterBar
                     ForEach(groups) { group in
                         Text(group.title)
                             .font(.headline).foregroundStyle(Theme.muted)
@@ -42,12 +43,6 @@ struct MacShoppingView: View {
                 }
             }
             .animation(.snappy, value: laterUndo.item?.id)
-            Divider()
-            VStack(spacing: 6) {
-                status
-                MacAddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
-            }
-            .padding(12)
         }
         .task { await store.sync() }
         .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
@@ -68,22 +63,26 @@ struct MacShoppingView: View {
         }
     }
 
-    /// At the top of the list: how many items this trip has, and the switch for the later ones (also ⌘L).
-    private var laterBar: some View {
+    /// Pinned above the list, so it's in reach however far down you are: adding an item, and the later switch (also ⌘L).
+    private var topBar: some View {
         let open = store.list.groups.reduce(0) { $0 + $1.items.filter { !$0.later }.count }
-        return HStack {
-            Text(open == 1 ? "1 item this trip" : "\(open) items this trip").foregroundStyle(Theme.muted)
-            Spacer()
-            if store.list.laterCount > 0 {
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                MacAddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
+                Divider().frame(height: 22)
                 Button { withAnimation { showLater.toggle() } } label: {
-                    Label(showLater ? "Hide later items" : "Show \(store.list.laterCount) later \(store.list.laterCount == 1 ? "item" : "items")",
-                          systemImage: showLater ? "clock.fill" : "clock")
+                    Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
                 }
                 .buttonStyle(.bordered)
-                .help("Show or hide items left for a later trip (⌘L)")
+                .disabled(store.list.laterCount == 0 && !showLater)
+                .help(showLater ? "Hide items left for a later trip (⌘L)" : "Show \(store.list.laterCount) items left for a later trip (⌘L)")
+            }
+            HStack {
+                Text(open == 1 ? "1 item this trip" : "\(open) items this trip").font(.caption).foregroundStyle(Theme.muted)
+                status
             }
         }
-        .padding(.top, 14)
+        .padding(.horizontal, 20).padding(.vertical, 10)
     }
 
     /// One group's rows on a rounded card, with hairlines between rows.
@@ -167,11 +166,11 @@ struct MacShoppingView: View {
 
     @ViewBuilder private var status: some View {
         if let error = store.error {
-            Text(error).font(.footnote).foregroundStyle(Theme.bad).frame(maxWidth: .infinity, alignment: .leading)
+            Text(error).font(.caption).foregroundStyle(Theme.bad)
         }
         if !store.pending.isEmpty {
             Text(store.pending.count == 1 ? "1 change waiting" : "\(store.pending.count) changes waiting")
-                .font(.footnote).foregroundStyle(Theme.muted).frame(maxWidth: .infinity, alignment: .leading)
+                .font(.caption).foregroundStyle(Theme.muted)
         }
     }
 

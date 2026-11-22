@@ -155,12 +155,6 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
   meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
 );
--- What each numbered aisle of the store holds ("canned soup, broth"), found once by a research run (lib/store-map.ts).
-CREATE TABLE IF NOT EXISTS store_aisles (
-  aisle TEXT PRIMARY KEY,
-  holds TEXT NOT NULL DEFAULT '[]', -- JSON list of kinds of products
-  updated_at TEXT NOT NULL DEFAULT ''
-);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL

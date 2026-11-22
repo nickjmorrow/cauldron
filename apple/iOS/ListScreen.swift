@@ -18,7 +18,6 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                if store.list.laterCount > 0 { laterRow }
                 ForEach(store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep)) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
@@ -42,6 +41,15 @@ struct ListScreen: View {
             .navigationTitle("Shopping")
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if store.list.laterCount > 0 || showLater {
+                        Button { withAnimation { showLater.toggle() } } label: {
+                            Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .accessibilityLabel(showLater ? "Hide later items" : "Show \(store.list.laterCount) later items")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Settings")
@@ -151,22 +159,6 @@ struct ListScreen: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-
-    /// First row of the list: the switch for items left for a later trip.
-    private var laterRow: some View {
-        Button { withAnimation { showLater.toggle() } } label: {
-            HStack {
-                Image(systemName: showLater ? "clock.fill" : "clock").foregroundStyle(Theme.sun)
-                Text(showLater ? "Hide later items" : "Show \(store.list.laterCount) later \(store.list.laterCount == 1 ? "item" : "items")")
-                    .foregroundStyle(Theme.fg)
-                Spacer()
-            }
-            .font(.subheadline.weight(.medium))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .listRowBackground(Theme.surface)
     }
 
     private var doneSection: some View {

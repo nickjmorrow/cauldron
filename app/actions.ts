@@ -12,7 +12,7 @@ import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
 import { clearDone, parseChange, removeItem, updateItem, type ItemChange } from "../lib/shopping.ts";
-import { addAndLookUp, lookupsEnabled, rebuildStoreMap } from "../lib/aisles.ts";
+import { addAndLookUp } from "../lib/aisles.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -381,11 +381,6 @@ export async function setShoppingLater(id: number, later: boolean, showLater: bo
   if (showLater) params.set("later", "show");
   if (later && !showLater) params.set("kept", String(id));
   redirect(params.size ? `/shopping?${params}` : "/shopping");
-}
-
-export async function researchStoreMap() {
-  if (lookupsEnabled()) rebuildStoreMap();
-  refresh();
 }
 
 export async function removeShoppingItem(id: number) {

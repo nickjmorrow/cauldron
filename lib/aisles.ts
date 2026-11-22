@@ -1,17 +1,17 @@
-// Places a shopping item in your store, after the item is added, with the `claude` command (Claude Code, signed in on
-// the server; it uses that subscription, no API key). Claude gets the store map (lib/store-map.ts: what each aisle holds)
-// and searches the web only when no aisle on the map fits.
+// Places a shopping item in your store a few seconds after it's added, with the `claude` command (Claude Code, signed in
+// on the server; it uses that subscription, no API key). Claude gets the store map (lib/store-map.ts: the aisles your
+// items are known to be in) and the store's departments, and answers from those alone: no web search, so it's quick.
+// Anything it can't place waits under "No aisle yet" until you type its aisle once.
 // CAULDRON_STORE names the store (for example "Mariano's, <neighborhood>, <city>"); CAULDRON_AISLE_LOOKUP=off turns lookups off.
 // Until the lookup answers, the item sits under a section guessed from its name (lib/sections.ts).
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
 import { SECTIONS } from "./sections.ts";
-import { readStoreMap, saveStoreMap, storeMapText } from "./store-map.ts";
+import { storeMapText } from "./store-map.ts";
 import { addItem, cleanAisle, finishLookup, guessedItems, markLookingUp, type ItemChange, type ShoppingItem } from "./shopping.ts";
 
 const run = promisify(execFile);
-const LOOKUP_TIMEOUT_MS = 180_000;
-const MAP_TIMEOUT_MS = 30 * 60_000; // the map research visits many product pages
+const LOOKUP_TIMEOUT_MS = 60_000;
 
 let hasClaude: boolean | undefined;
 export const lookupsEnabled = () => {
@@ -45,81 +45,26 @@ const prompt = (name: string, where: string, storeMap: string) => `Which aisle i
 
 ${AREAS(where)}
 
-What's known about this store's aisles:
-${storeMap || "(nothing yet)"}
+The aisles known so far, with items found in them:
+${storeMap || "(none yet)"}
 
-- If the item is sold in one of the edge departments, answer that department.
-- If an aisle above clearly holds this kind of product, answer that aisle number without searching.
-- Only if none fits, search the web for this exact store's aisle (Kroger-family stores show a product's aisle for a chosen store on their own product pages).
-- If you still can't tell, answer "unknown". Never guess a number or name an area that isn't listed.
+- If it's sold in one of the edge departments, answer that department.
+- If a known aisle holds the same kind of product (or one shelved with it, like soy sauce and sriracha in an Asian foods aisle), answer that aisle number.
+- Otherwise answer "unknown". Never invent an aisle number or an area that isn't listed.
 
-End your reply with one line of JSON and nothing after it: {"aisle": "<department, number, or unknown>"}`;
+Reply with only one line of JSON: {"aisle": "<department, number, or unknown>"}`;
 
-const claude = async (text: string, timeout: number) => {
+export const askClaude: AskAisle = async (name, where, storeMap) => {
   const { stdout } = await run(
     "claude",
-    ["-p", text, "--output-format", "json", "--allowedTools", "WebSearch", "WebFetch", "--strict-mcp-config",
-      "--disable-slash-commands", "--setting-sources", "", "--no-session-persistence", "--model", "sonnet"],
-    { cwd: "data", maxBuffer: 10 * 1024 * 1024, timeout },
+    ["-p", prompt(name, where, storeMap), "--output-format", "json", "--tools", "", "--strict-mcp-config", "--disable-slash-commands",
+      "--setting-sources", "", "--no-session-persistence", "--model", "haiku"],
+    { cwd: "data", maxBuffer: 1024 * 1024, timeout: LOOKUP_TIMEOUT_MS },
   );
   const reply = JSON.parse(stdout) as { result: string; is_error: boolean };
   if (reply.is_error) throw new Error(`claude failed: ${reply.result}`);
-  return reply.result;
+  return readAisle(reply.result);
 };
-
-export const askClaude: AskAisle = async (name, where, storeMap) => readAisle(await claude(prompt(name, where, storeMap), LOOKUP_TIMEOUT_MS));
-
-// Kinds of products the map research looks for, so it covers the whole middle of the store.
-const KINDS = [
-  "cereal", "oatmeal", "pancake mix and syrup", "coffee", "tea", "pasta", "pasta sauce", "rice and grains", "dry beans", "canned vegetables",
-  "canned beans", "canned soup and broth", "canned tomatoes and tomato paste", "Asian foods (soy sauce, sesame oil, rice vinegar)",
-  "Mexican foods (salsa, tortillas, pickled jalapeños)", "condiments (ketchup, mustard, mayo, hot sauce)", "salad dressing", "pickles and olives",
-  "oils and vinegars", "spices and seasonings", "baking (flour, sugar, baking powder)", "stuffing and croutons", "nut butters and jam",
-  "crackers", "chips", "cookies", "nuts and dried fruit", "juice", "soda and sparkling water", "bottled water", "sports drinks",
-  "paper towels and toilet paper", "trash bags and foil", "dish soap and dishwasher detergent", "cleaning supplies", "laundry",
-  "pet food", "baby", "vitamins", "pharmacy and first aid", "shampoo and soap", "oral care",
-];
-
-const mapPrompt = (where: string) => `Build an aisle directory for ${where}: which numbered aisle holds each kind of product below.
-
-${AREAS(where)}
-
-Search this exact store (Kroger-family stores show a product's aisle for a chosen store on their own product pages; search for typical products of each kind and read their aisle). Kinds:
-${KINDS.map((k) => `- ${k}`).join("\n")}
-
-Group what you find by aisle number. Include only aisles you found evidence for; leave out kinds you couldn't place rather than guessing.
-End your reply with one line of JSON and nothing after it: {"aisles": [{"aisle": "<number>", "holds": ["<kind>", ...]}, ...]}`;
-
-export type BuildMap = (where: string) => Promise<{ aisle: string; holds: string[] }[] | undefined>;
-export const researchStoreMap: BuildMap = async (where) => {
-  const reply = await claude(mapPrompt(where), MAP_TIMEOUT_MS);
-  const entries = readStoreMap(reply);
-  if (!entries) console.error(`store map research reply had no aisles JSON; it ended: ${reply.slice(-600)}`);
-  return entries;
-};
-
-let building: Promise<number> | undefined;
-// Researches the store map in the background and saves it; then places every item whose aisle is still a guess.
-// Returns false when a run is already going.
-export function rebuildStoreMap(research: BuildMap = researchStoreMap, ask: AskAisle = askClaude): boolean {
-  if (building) return false;
-  building = (async () => {
-    try {
-      const entries = await research(store());
-      if (entries) saveStoreMap(entries);
-      else console.error("store map research gave no usable answer; keeping the old map");
-      return entries?.length ?? 0;
-    } catch (error) {
-      console.error("store map research failed:", error instanceof Error ? error.message : error);
-      return 0;
-    } finally {
-      building = undefined;
-      lookUpGuessed(ask);
-    }
-  })();
-  return true;
-}
-export const storeMapBuilding = () => building !== undefined;
 
 // Looks up one item and stores the answer. Never throws: a failed lookup leaves the guessed section.
 export async function lookUp(id: number, name: string, ask: AskAisle = askClaude): Promise<void> {

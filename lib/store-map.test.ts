@@ -4,37 +4,17 @@ import { rmSync } from "node:fs";
 
 process.env.CAULDRON_DB = "data/test-store-map.db";
 rmSync("data/test-store-map.db", { force: true });
-const { readStoreMap, saveStoreMap, getStoreMap, storeMapText } = await import("./store-map.ts");
-const { addItem, getItem } = await import("./shopping.ts");
-const { rebuildStoreMap, storeMapBuilding } = await import("./aisles.ts");
+const { getStoreMap, storeMapText } = await import("./store-map.ts");
+const { addItem, finishLookup } = await import("./shopping.ts");
 
-test("the research answer is read from its last JSON, keeping only numbered aisles with contents", () => {
-  const text = 'Found these.\n{"aisles": [{"aisle": "Aisle 09", "holds": ["canned soup", " broth "]}, {"aisle": "Produce", "holds": ["kale"]}, {"aisle": "3", "holds": []}]}';
-  assert.deepEqual(readStoreMap(text), [{ aisle: "9", holds: ["canned soup", "broth"] }]);
-  assert.equal(readStoreMap("no json"), undefined);
-  const spread = 'Here is the directory:\n```json\n{\n  "aisles": [\n    {"aisle": "3", "holds": ["cereal"]}\n  ]\n}\n```';
-  assert.deepEqual(readStoreMap(spread), [{ aisle: "3", holds: ["cereal"] }]);
-});
-
-test("the map joins the researched aisles with the items you've placed, in aisle order", () => {
-  saveStoreMap([{ aisle: "9", holds: ["canned soup", "broth"] }, { aisle: "4", holds: ["Asian foods"] }]);
+test("the map lists the items known to be in each numbered aisle, in aisle order", () => {
   addItem({ name: "Sesame seeds", aisle: "4" });
-  addItem({ name: "Mystery thing", aisle: "Produce" }); // a department, not a numbered aisle: not on the map
-  assert.deepEqual(getStoreMap(), [
-    { aisle: "4", holds: ["Asian foods"], items: ["Sesame seeds"] },
-    { aisle: "9", holds: ["canned soup", "broth"], items: [] },
-  ]);
-  assert.equal(storeMapText(), "Aisle 4: Asian foods (on the list before: Sesame seeds)\nAisle 9: canned soup, broth");
-});
-
-test("rebuilding researches the map, saves it, then places the items that only had a guess", async () => {
-  const item = addItem({ name: "Tomato paste" }, { lookUp: false });
-  let seenMap = "";
-  assert.equal(rebuildStoreMap(async () => [{ aisle: "7", holds: ["canned tomatoes and tomato paste"] }], async (_n, _s, map) => { seenMap = map; return "7"; }), true);
-  assert.equal(rebuildStoreMap(async () => undefined), false); // one run at a time
-  while (storeMapBuilding()) await new Promise((r) => setTimeout(r, 5));
-  await new Promise((r) => setTimeout(r, 20));
-  assert.match(seenMap, /Aisle 7: canned tomatoes and tomato paste/);
-  assert.equal(getItem(item.id)!.aisle, "7");
+  addItem({ name: "Broth", aisle: "9" });
+  addItem({ name: "Kale", aisle: "Produce" }); // a department, not a numbered aisle
+  const placed = addItem({ name: "Tomato paste" }, { lookUp: true });
+  finishLookup(placed.id, "9");
+  addItem({ name: "Mystery" }); // only a guess: not on the map
+  assert.deepEqual(getStoreMap(), [{ aisle: "4", items: ["Sesame seeds"] }, { aisle: "9", items: ["Broth", "Tomato paste"] }]);
+  assert.equal(storeMapText(), "Aisle 4: Sesame seeds\nAisle 9: Broth, Tomato paste");
   rmSync("data/test-store-map.db", { force: true });
 });
