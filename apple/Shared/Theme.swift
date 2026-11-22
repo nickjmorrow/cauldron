@@ -32,3 +32,27 @@ struct CheckMark: View {
         .frame(width: size, height: size)
     }
 }
+
+/// "for Stuffing": the meals or recipes an item is bought for, as a small brass tag.
+struct MealTag: View {
+    var meals: [String]
+
+    var body: some View {
+        Text(meals.joined(separator: ", "))
+            .font(.caption.weight(.medium))
+            .lineLimit(1)
+            .foregroundStyle(Theme.sun)
+            .padding(.horizontal, 8).padding(.vertical, 3)
+            .background(Theme.sun.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(Theme.sun.opacity(0.35), lineWidth: 1))
+            .accessibilityLabel("For " + meals.joined(separator: ", "))
+    }
+}
+
+/// The small "looking up its aisle" note shown while the server asks Claude.
+struct LookingNote: View {
+    var body: some View {
+        HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Finding its aisle…") }
+            .font(.caption).foregroundStyle(Theme.muted)
+    }
+}

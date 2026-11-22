@@ -71,25 +71,24 @@ struct MacShoppingView: View {
             Button { store.setDone(item.id, !item.done) } label: { CheckMark(done: item.done, size: 20) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.name)
-                    .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
-                    .strikethrough(item.done, color: Theme.muted)
-                let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
-                if !detail.isEmpty { Text(detail).font(.callout).foregroundStyle(Theme.muted) }
-                if let meals = item.forMeals { Text(meals).font(.callout.italic()).foregroundStyle(Theme.sun) }
-                if item.isLooking {
-                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Finding its aisle…") }
-                        .font(.footnote).foregroundStyle(Theme.muted)
-                }
+            // One line across the row: name, amount and note, then (on the right) lookup, meal tag and photo.
+            Text(item.name)
+                .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
+                .strikethrough(item.done, color: Theme.muted)
+                .lineLimit(1)
+                .layoutPriority(2)
+            let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
+            if !detail.isEmpty {
+                Text(detail).font(.callout).foregroundStyle(Theme.muted).lineLimit(1).truncationMode(.tail).layoutPriority(1)
             }
-            .fixedSize(horizontal: false, vertical: true) // macOS list rows otherwise keep a two-line height and clip the meals line
-            Spacer(minLength: 0)
+            Spacer(minLength: 12)
+            if item.isLooking { LookingNote() }
+            if let meals = item.meals, !meals.isEmpty { MealTag(meals: meals) }
             if let url = store.photoURL(item) {
                 Button { viewing = item } label: {
                     AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.raised }
-                        .frame(width: 36, height: 36)
-                        .clipShape(RoundedRectangle(cornerRadius: 7))
+                        .frame(width: 26, height: 26)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo of \(item.name)")
@@ -106,7 +105,7 @@ struct MacShoppingView: View {
                 .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
             }
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 5)
         .contextMenu {
             Button(item.later ? "Move to this trip" : "Move to later") { store.setLater(item.id, !item.later) }
             Button("Choose photo…") { choosePhoto(for: item) }

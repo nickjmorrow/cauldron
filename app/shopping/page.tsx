@@ -24,8 +24,7 @@ type MealLinks = Map<string, number>; // lower-cased meal name -> meal id, for l
 function MealTags({ meals, links }: { meals: string[]; links: MealLinks }) {
   if (meals.length === 0) return null;
   return (
-    <span className="shop-meals">
-      for{" "}
+    <span className="shop-meals" aria-label={`For ${meals.join(", ")}`}>
       {meals.map((m, i) => {
         const id = links.get(m.toLowerCase());
         return (
@@ -54,9 +53,13 @@ function Item({ item, links }: { item: ShoppingItem; links: MealLinks }) {
       <div className="shop-text">
         <span className="shop-name">{item.name}</span>
         {(item.qty || item.note) && <span className="muted shop-detail">{[item.qty, item.note].filter(Boolean).join(" · ")}</span>}
-        <MealTags meals={item.meals} links={links} />
-        {item.looking && <span className="shop-looking" role="status"><span className="spinner" aria-hidden="true" /> Finding its aisle…</span>}
       </div>
+      {(item.looking || item.meals.length > 0) && (
+        <span className="shop-extra">
+          {item.looking && <span className="shop-looking" role="status"><span className="spinner" aria-hidden="true" /> Finding its aisle…</span>}
+          <MealTags meals={item.meals} links={links} />
+        </span>
+      )}
       {!item.done && (
         <form action={changeShoppingItem.bind(null, item.id, { later: !item.later })}>
           <button className="shop-later" aria-pressed={item.later} title={item.later ? "Later: tap to get it this trip" : "This trip: tap to leave it for later"}

@@ -140,19 +140,13 @@ struct ListScreen: View {
                         .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
                         .strikethrough(item.done, color: Theme.muted)
                     let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
-                    if !detail.isEmpty {
-                        Text(detail).font(.subheadline).foregroundStyle(Theme.muted)
-                    }
-                    if let meals = item.forMeals {
-                        Text(meals).font(.subheadline.italic()).foregroundStyle(Theme.sun)
-                    }
-                    if item.isLooking {
-                        HStack(spacing: 6) {
-                            ProgressView().controlSize(.mini)
-                            Text("Finding its aisle…")
+                    if !detail.isEmpty || item.meals?.isEmpty == false {
+                        HStack(spacing: 8) {
+                            if !detail.isEmpty { Text(detail).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1) }
+                            if let meals = item.meals, !meals.isEmpty { MealTag(meals: meals) }
                         }
-                        .font(.footnote).foregroundStyle(Theme.muted)
                     }
+                    if item.isLooking { LookingNote() }
                 }
                 Spacer(minLength: 0)
             }
