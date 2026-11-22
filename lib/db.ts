@@ -1,3 +1,4 @@
+import { SECTIONS } from "./sections.ts";
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 
@@ -149,7 +150,10 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   done_at TEXT,
   cleared INTEGER NOT NULL DEFAULT 0,
   photo_type TEXT NOT NULL DEFAULT '', -- the photo's image type; '' = no photo
-  photo_at TEXT NOT NULL DEFAULT ''    -- when it was last set, so clients can tell a new photo from a cached one
+  photo_at TEXT NOT NULL DEFAULT '',   -- when it was last set, so clients can tell a new photo from a cached one
+  aisle_from TEXT NOT NULL DEFAULT '', -- where the aisle came from: 'you', 'remembered', 'store' (looked up), 'guess', or ''
+  lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
+  meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
 );
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
@@ -247,13 +251,24 @@ function migrate(db: DatabaseSync) {
     try {
       db.exec("ALTER TABLE shopping_items RENAME TO shopping_items_old");
       db.exec(SCHEMA); // recreates shopping_items with AUTOINCREMENT; every other table already exists
-      db.exec("INSERT INTO shopping_items SELECT * FROM shopping_items_old");
+      const old = (db.prepare("PRAGMA table_info(shopping_items_old)").all() as { name: string }[]).map((c) => c.name).join(", ");
+      db.exec(`INSERT INTO shopping_items (${old}) SELECT ${old} FROM shopping_items_old`);
       db.exec("DROP TABLE shopping_items_old");
       db.exec("COMMIT");
     } catch (e) {
       db.exec("ROLLBACK");
       throw e;
     }
+  }
+  const shoppingNow = db.prepare("PRAGMA table_info(shopping_items)").all() as { name: string }[];
+  if (!shoppingNow.some((c) => c.name === "aisle_from")) {
+    db.exec(`ALTER TABLE shopping_items ADD COLUMN aisle_from TEXT NOT NULL DEFAULT '';
+      ALTER TABLE shopping_items ADD COLUMN lookup INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE shopping_items ADD COLUMN meals TEXT NOT NULL DEFAULT '[]';
+      UPDATE shopping_items SET aisle_from = 'you' WHERE aisle != '';`);
+    // Sections filled in by name before lookups existed are guesses, which a store lookup may replace.
+    const sections = SECTIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(", ");
+    db.exec(`UPDATE shopping_items SET aisle_from = 'guess' WHERE aisle IN (${sections})`);
   }
   const placements = db.prepare("PRAGMA table_info(ingredient_locations)").all() as { name: string }[];
   if (!placements.some((c) => c.name === "status")) {

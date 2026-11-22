@@ -5,6 +5,7 @@ struct ListScreen: View {
     var store: Store
     @Environment(\.scenePhase) private var scenePhase
     @State private var showDone = false
+    @AppStorage("showLater") private var showLater = false
     @State private var showSettings = false
     @State private var photoFor: Item?          // the item a photo is being taken or chosen for
     @State private var choosingPhoto = false
@@ -15,7 +16,7 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.list.groups) { group in
+                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
@@ -29,16 +30,28 @@ struct ListScreen: View {
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.bg)
             .overlay {
-                if store.list.groups.isEmpty && store.list.done.isEmpty {
-                    Text("Nothing on the list.").foregroundStyle(Theme.muted)
+                if store.list.visibleGroups(showLater: showLater).isEmpty && store.list.done.isEmpty {
+                    Text(store.list.laterCount > 0 ? "Nothing for this trip.\nEverything left is for later." : "Nothing on the list.")
+                        .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                 }
             }
             .refreshable { await store.sync() }
             .navigationTitle("Shopping")
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbar {
-                Button { showSettings = true } label: { Image(systemName: "gearshape") }
-                    .accessibilityLabel("Settings")
+                ToolbarItem(placement: .topBarLeading) {
+                    if store.list.laterCount > 0 {
+                        Button { withAnimation { showLater.toggle() } } label: {
+                            Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
+                                .labelStyle(.titleAndIcon)
+                        }
+                        .accessibilityLabel(showLater ? "Hide later items" : "Show \(store.list.laterCount) later items")
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showSettings = true } label: { Image(systemName: "gearshape") }
+                        .accessibilityLabel("Settings")
+                }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 6) {
@@ -85,6 +98,17 @@ struct ListScreen: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Photo of \(item.name)")
             }
+            if !item.done {
+                Button { store.setLater(item.id, !item.later) } label: {
+                    Image(systemName: item.later ? "clock.fill" : "clock")
+                        .font(.title3)
+                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
+            }
         }
         .listRowBackground(Theme.surface)
         .listRowSeparatorTint(Theme.line)
@@ -113,11 +137,21 @@ struct ListScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
                         .font(.title3.weight(.medium))
-                        .foregroundStyle(item.done ? Theme.muted : Theme.fg)
+                        .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
                         .strikethrough(item.done, color: Theme.muted)
                     let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
                     if !detail.isEmpty {
                         Text(detail).font(.subheadline).foregroundStyle(Theme.muted)
+                    }
+                    if let meals = item.forMeals {
+                        Text(meals).font(.subheadline.italic()).foregroundStyle(Theme.sun)
+                    }
+                    if item.isLooking {
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.mini)
+                            Text("Finding its aisle…")
+                        }
+                        .font(.footnote).foregroundStyle(Theme.muted)
                     }
                 }
                 Spacer(minLength: 0)

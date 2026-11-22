@@ -6,12 +6,13 @@ import UniformTypeIdentifiers
 struct MacShoppingView: View {
     var store: Store
     @State private var showDone = false
+    @AppStorage("showLater") private var showLater = false
     @State private var viewing: Item?
 
     var body: some View {
         VStack(spacing: 0) {
             List {
-                ForEach(store.list.groups) { group in
+                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
                     Section(group.title) {
                         ForEach(group.items) { row($0) }
                     }
@@ -28,8 +29,9 @@ struct MacShoppingView: View {
             }
             .scrollContentBackground(.hidden)
             .overlay {
-                if store.list.groups.isEmpty && store.list.done.isEmpty {
-                    Text("Nothing on the list.").foregroundStyle(Theme.muted)
+                if store.list.visibleGroups(showLater: showLater).isEmpty && store.list.done.isEmpty {
+                    Text(store.list.laterCount > 0 ? "Nothing for this trip. Everything left is for later." : "Nothing on the list.")
+                        .foregroundStyle(Theme.muted)
                 }
             }
             Divider()
@@ -45,6 +47,13 @@ struct MacShoppingView: View {
             Task { await store.sync() }
         }
         .toolbar {
+            if store.list.laterCount > 0 {
+                Toggle(isOn: $showLater) {
+                    Label(showLater ? "Hide later" : "Show later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
+                }
+                .toggleStyle(.button)
+                .help("Show or hide items left for a later trip")
+            }
             Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
         }
         .sheet(item: $viewing) { item in
@@ -64,10 +73,15 @@ struct MacShoppingView: View {
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.name)
-                    .foregroundStyle(item.done ? Theme.muted : Theme.fg)
+                    .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
                     .strikethrough(item.done, color: Theme.muted)
                 let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
                 if !detail.isEmpty { Text(detail).font(.callout).foregroundStyle(Theme.muted) }
+                if let meals = item.forMeals { Text(meals).font(.callout.italic()).foregroundStyle(Theme.sun) }
+                if item.isLooking {
+                    HStack(spacing: 6) { ProgressView().controlSize(.mini); Text("Finding its aisle…") }
+                        .font(.footnote).foregroundStyle(Theme.muted)
+                }
             }
             Spacer(minLength: 0)
             if let url = store.photoURL(item) {
@@ -78,6 +92,17 @@ struct MacShoppingView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo of \(item.name)")
+            }
+            if !item.done {
+                Button { store.setLater(item.id, !item.later) } label: {
+                    Image(systemName: item.later ? "clock.fill" : "clock")
+                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help(item.later ? "Later: click to get it this trip" : "Click to leave it for later")
+                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
             }
         }
         .padding(.vertical, 3)

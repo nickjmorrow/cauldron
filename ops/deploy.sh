@@ -2,7 +2,8 @@
 # Run on your own machine: test, copy the repo to the server, install and build there, (re)start the service.
 # The server is the ssh host in CAULDRON_DEPLOY_HOST, set in the gitignored .env.local or the environment.
 # First run also installs the launchd agents (the server and the nightly ops/backup.sh) and a tailnet-only `tailscale serve` on CAULDRON_SERVE_PORT.
-# .env.local is copied along with the code, so the server gets the same settings.
+# .env.local is copied along with the code, so the server gets the same settings. Server-only secrets
+# (ANTHROPIC_API_KEY) go in the server's own .env.production.local, which deploys never copy or delete.
 # The database (data/) is never copied or touched: the server keeps its own. Seed it once by hand (see README).
 set -euo pipefail
 cd "${0:A:h}/.."
@@ -13,7 +14,7 @@ npm test
 rsync -az --delete \
   --exclude node_modules --exclude .next --exclude .git --exclude data --exclude tsconfig.tsbuildinfo \
   --exclude apple --exclude .claude --exclude .dashboard --exclude .impeccable --exclude .DS_Store \
-  --exclude CLAUDE.local.md --exclude docs/superpowers --exclude docs/morning-notes.md --exclude 'scripts/peek*.mjs' \
+  --exclude CLAUDE.local.md --exclude .env.production.local --exclude docs/superpowers --exclude docs/morning-notes.md --exclude 'scripts/peek*.mjs' \
   ./ "${host}:Projects/cauldron/"
 ssh "$host" "zsh -lc '
   set -e

@@ -11,7 +11,8 @@ import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAl
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
-import { addItem, clearDone, parseChange, removeItem, updateItem, type ItemChange } from "../lib/shopping.ts";
+import { clearDone, parseChange, removeItem, updateItem, type ItemChange } from "../lib/shopping.ts";
+import { addAndLookUp } from "../lib/aisles.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -340,9 +341,9 @@ export async function saveProfile(_: ProfileState, form: FormData): Promise<Prof
 }
 
 export async function addShoppingItem(f: FormData) {
-  const change = parseChange({ name: str(f, "name"), qty: str(f, "qty"), aisle: str(f, "aisle"), later: f.get("later") === "on" }, { needsName: true });
+  const change = parseChange({ name: str(f, "name"), qty: str(f, "qty"), aisle: str(f, "aisle"), meals: mealList(str(f, "meals")), later: f.get("later") === "on" }, { needsName: true });
   if ("error" in change) return; // the name field is required, so only a blank name gets here
-  addItem({ ...change, name: change.name! });
+  addAndLookUp({ ...change, name: change.name! });
   refresh();
 }
 
@@ -356,6 +357,16 @@ export async function changeShoppingItem(id: number, input: ItemChange) {
 
 export async function setShoppingAisle(id: number, f: FormData) {
   const change = parseChange({ aisle: str(f, "aisle") }, { needsName: false });
+  if ("error" in change) return;
+  updateItem(id, change);
+  refresh();
+}
+
+// "Stuffing, Roast chicken" -> ["Stuffing", "Roast chicken"]
+const mealList = (text: string) => text.split(",").map((m) => m.trim()).filter(Boolean);
+
+export async function setShoppingMeals(id: number, f: FormData) {
+  const change = parseChange({ meals: mealList(str(f, "meals")) }, { needsName: false });
   if ("error" in change) return;
   updateItem(id, change);
   refresh();

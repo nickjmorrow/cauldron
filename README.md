@@ -14,7 +14,7 @@ You describe one **base day** (the meals you usually eat, with variations), and 
 - **Targets**: calorie and macro targets for all three goals from your profile, plus which nutrients may run over and by how much.
 - **AI proposals with review**: describe what you want in words and the `claude` CLI maps it to ingredient searches, meals, liked foods or kitchen placements. Ingredient nutrients come from USDA FoodData Central. Everything lands as *proposed* and counts only after you approve it on the Review page.
 - **Kitchen**: name the places food lives (pantry, fridge shelves, freezer) and see where each ingredient is kept.
-- **Shopping list**: this trip's items grouped in aisle order, a later pile for everything else, and check-off with undo. Items can carry a photo (of the exact product, say). An item remembers its aisle and photo the next time it's added; with no aisle known, it goes under a store section guessed from its name (Produce, Dairy & eggs, Pantry and so on, in walking order). A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
+- **Shopping list**: every item grouped by aisle, with check-off and undo. Any item can be set for a later trip with one tap; later items stay hidden until you show them. An item can say which meals or recipes it's for. When an item is added without an aisle, the server asks Claude (with web search) which aisle it's in at your store and shows it as looking until the answer comes back. Items can carry a photo (of the exact product, say). An item remembers its aisle and photo the next time it's added; with no aisle known, it goes under a store section guessed from its name (Produce, Dairy & eggs, Pantry and so on, in walking order). A small JSON API (`/api/shopping`) lets other clients, such as a phone or watch app, read and change the same list.
 
 ## How it works
 
@@ -104,6 +104,8 @@ The `CauldronMac` scheme is the Mac app: a sidebar with the native shopping list
 | `CAULDRON_XLSX` | Spreadsheet `npm run import` reads when no path is given | `data/diet.xlsx` |
 | `CAULDRON_DEPLOY_HOST` | ssh host `ops/deploy.sh` deploys to | none (required to deploy) |
 | `CAULDRON_SERVE_PORT` | Tailnet HTTPS port `ops/deploy.sh` serves on | `8456` |
+| `ANTHROPIC_API_KEY` | Turns on store aisle lookups for new shopping items (Claude with web search). Put it in the server's `.env.production.local`, which deploys leave alone | none (lookups off; items get a guessed section) |
+| `CAULDRON_STORE` | The store aisle lookups search for, e.g. `Mariano's, <neighborhood>, <city>` | a typical US grocery store |
 | `CAULDRON_BACKUP_DIR` | Where `ops/backup.sh` writes the nightly copies | `~/CauldronBackups` |
 
 Next.js reads these from `.env.local`. The import script is plain Node, so pass variables inline there, for example `CAULDRON_DB=data/other.db npm run import -- diet.xlsx`.

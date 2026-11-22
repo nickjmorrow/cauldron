@@ -142,12 +142,24 @@ final class Store {
             defaults.set(try? JSONEncoder().encode(fresh), forKey: "list")
             defaults.set(updated, forKey: "updated")
             onChange(fresh, updated ?? .now)
+            if fresh.anyLooking { scheduleLookupCheck() }
         } catch is Refused {
             error = "The server answered with an error."
         } catch is DecodingError {
             error = "The server sent something unexpected."
         } catch {
             self.error = "Can't reach the server."
+        }
+    }
+
+    /// While the server is still looking up an aisle, fetch again shortly so the item moves to its aisle on its own.
+    @ObservationIgnored private var lookupCheck: Task<Void, Never>?
+    private func scheduleLookupCheck() {
+        guard lookupCheck == nil else { return }
+        lookupCheck = Task {
+            try? await Task.sleep(for: .seconds(2))
+            lookupCheck = nil
+            await sync()
         }
     }
 

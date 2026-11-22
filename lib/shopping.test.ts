@@ -5,7 +5,7 @@ import { rmSync } from "node:fs";
 // Own database file, so the real one is never touched.
 const FILE = "data/test-shopping.db";
 process.env.CAULDRON_DB = FILE;
-const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, LATER, setPhoto, getPhoto, removePhoto } = await import("./shopping.ts");
+const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, setPhoto, finishLookup, markLookingUp, getPhoto, removePhoto } = await import("./shopping.ts");
 const { PHOTOS_DIR } = await import("./db.ts");
 
 test.after(() => {
@@ -14,16 +14,16 @@ test.after(() => {
 });
 
 const item = (name: string, aisle = "", extra: { later?: boolean; done?: boolean } = {}) =>
-  ({ id: 0, name, qty: "", aisle, later: false, done: false, note: "", photo: "", ...extra });
+  ({ id: 0, name, qty: "", aisle, later: false, done: false, note: "", photo: "", aisleFrom: "", looking: false, meals: [], ...extra });
 
-test("numbered aisles come first in walking order, then named areas, then items with no aisle, then later", () => {
+test("numbered aisles come first in walking order, then named areas, then items with no aisle; later items stay in their aisle", () => {
   const list = groupItems([
     item("Rice", "10"), item("Apples", "Produce"), item("Soy sauce", "4"), item("Mystery"), item("Bread", "2"),
     item("Sponges", "7", { later: true }), item("Noodles", "4"),
   ]);
   assert.deepEqual(list.groups.map((g) => [g.title, g.items.map((i) => i.name)]), [
-    ["Aisle 2", ["Bread"]], ["Aisle 4", ["Noodles", "Soy sauce"]], ["Aisle 10", ["Rice"]],
-    ["Produce", ["Apples"]], [NO_AISLE, ["Mystery"]], [LATER, ["Sponges"]],
+    ["Aisle 2", ["Bread"]], ["Aisle 4", ["Noodles", "Soy sauce"]], ["Aisle 7", ["Sponges"]], ["Aisle 10", ["Rice"]],
+    ["Produce", ["Apples"]], [NO_AISLE, ["Mystery"]],
   ]);
 });
 
@@ -58,7 +58,7 @@ test("a bad change says what was wrong", () => {
 
 test("items are added, checked off, un-checked and removed", () => {
   const celery = addItem({ name: "Celery", qty: "1 bunch", aisle: "Produce" });
-  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "", photo: "" });
+  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "", photo: "", aisleFrom: "you", looking: false, meals: [] });
   assert.equal(updateItem(celery.id, { done: true })!.done, true);
   assert.equal(updateItem(celery.id, { done: false, later: true })!.later, true);
   assert.equal(listItems().find((i) => i.id === celery.id)!.done, false);
@@ -126,4 +126,31 @@ test("an item added again gets the last photo of the same name, and deleting an 
   removeItem(again.id);
   assert.equal(getPhoto(again.id), undefined);
   assert.equal(addItem({ name: "Butter" }).photo, "");
+});
+
+test("an added item says where its aisle came from, and only a guessed one is looked up", () => {
+  assert.deepEqual(pick(addItem({ name: "Kale", aisle: "Produce" }, { lookUp: true })), ["Produce", "you", false]);
+  assert.deepEqual(pick(addItem({ name: "kale" }, { lookUp: true })), ["Produce", "remembered", false]);
+  assert.deepEqual(pick(addItem({ name: "Farro" }, { lookUp: true })), ["", "guess", true]);
+  assert.deepEqual(pick(addItem({ name: "Couscous" })), ["", "guess", false]);
+});
+const pick = (i: { aisle: string; aisleFrom: string; looking: boolean }) => [i.aisle, i.aisleFrom, i.looking];
+
+test("a finished lookup sets the store's aisle, unless the aisle was set by hand meanwhile", () => {
+  const a = addItem({ name: "Tahini" }, { lookUp: true });
+  assert.deepEqual(pick(finishLookup(a.id, "Aisle 09")!), ["9", "store", false]);
+  const b = addItem({ name: "Miso" }, { lookUp: true });
+  updateItem(b.id, { aisle: "3" });
+  assert.deepEqual(pick(finishLookup(b.id, "12")!), ["3", "you", false]);
+  const c = addItem({ name: "Ketchup" }, { lookUp: true });
+  assert.deepEqual(pick(finishLookup(c.id, undefined)!), ["Condiments & sauces", "guess", false]); // failed: the guess stays
+  markLookingUp(c.id);
+});
+
+test("an item can say which meals it's for", () => {
+  assert.deepEqual(parseChange({ name: "Celery", meals: [" Stuffing ", "Stuffing", ""] }, { needsName: true }), { name: "Celery", meals: ["Stuffing"] });
+  assert.match((parseChange({ meals: "Stuffing" }, { needsName: false }) as { error: string }).error, /list of names/);
+  const item = addItem({ name: "Sage", meals: ["Stuffing"] });
+  assert.deepEqual(item.meals, ["Stuffing"]);
+  assert.deepEqual(updateItem(item.id, { meals: ["Stuffing", "Roast chicken"] })!.meals, ["Stuffing", "Roast chicken"]);
 });
