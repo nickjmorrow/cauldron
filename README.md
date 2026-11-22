@@ -77,7 +77,11 @@ echo 'CAULDRON_DEPLOY_HOST=my-server' >> .env.local
 
 The script never copies or changes `data/`. To start the server with your existing data, copy `data/cauldron.db` there once, before the first deploy. After that the server's database is the one to use; a second copy edited elsewhere will drift.
 
+It also installs a nightly backup (`ops/backup.sh`, launchd `com.cauldron.backup`, 3:45am, log `~/Library/Logs/cauldron-backup.log`): a dated, self-contained copy of the database plus the shopping photos in `CAULDRON_BACKUP_DIR`, keeping the newest 30. Run it by hand with `./ops/backup.sh`; to restore, stop the server and copy a dated file over `data/cauldron.db`.
+
 ### Phone and watch app
+
+Where this is going: Cauldron should be a native app on desktop (Mac), phone and watch, with the server as the shared store. Today only the shopping list is native; the planner pages are still web-only.
 
 `apple/` holds a small native iPhone app with an Apple Watch app inside it, a client for the shopping list API. The phone talks to the server; the watch gets the list from the phone (WatchConnectivity), so it works anywhere the phone can reach the server and shows the last list it had when it can't. Check-offs made while offline are queued and sent later.
 
@@ -98,6 +102,7 @@ Then open `Cauldron.xcodeproj` and run the `Cauldron` scheme on a phone that has
 | `CAULDRON_XLSX` | Spreadsheet `npm run import` reads when no path is given | `data/diet.xlsx` |
 | `CAULDRON_DEPLOY_HOST` | ssh host `ops/deploy.sh` deploys to | none (required to deploy) |
 | `CAULDRON_SERVE_PORT` | Tailnet HTTPS port `ops/deploy.sh` serves on | `8456` |
+| `CAULDRON_BACKUP_DIR` | Where `ops/backup.sh` writes the nightly copies | `~/CauldronBackups` |
 
 Next.js reads these from `.env.local`. The import script is plain Node, so pass variables inline there, for example `CAULDRON_DB=data/other.db npm run import -- diet.xlsx`.
 

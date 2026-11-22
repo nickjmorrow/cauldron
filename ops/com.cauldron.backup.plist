@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Nightly backup (ops/backup.sh). ops/deploy.sh swaps the home-folder placeholder and installs this in ~/Library/LaunchAgents. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.cauldron.backup</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__HOME__/Projects/cauldron/ops/backup.sh</string>
+	</array>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Hour</key>
+		<integer>3</integer>
+		<key>Minute</key>
+		<integer>45</integer>
+	</dict>
+	<key>StandardOutPath</key>
+	<string>__HOME__/Library/Logs/cauldron-backup.log</string>
+	<key>StandardErrorPath</key>
+	<string>__HOME__/Library/Logs/cauldron-backup.log</string>
+</dict>
+</plist>
