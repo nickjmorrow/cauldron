@@ -14,6 +14,12 @@ struct Write: Codable, Hashable {
         Write(method: "POST", path: "/api/shopping",
               body: try? JSONSerialization.data(withJSONObject: ["name": name, "aisle": aisle, "later": later]))
     }
+    /// Puts a deleted item back (as a new item with the same details), for undo.
+    static func restore(_ item: Item) -> Write {
+        let fields: [String: Any] = ["name": item.name, "qty": item.qty, "aisle": item.aisle, "note": item.note,
+                                     "later": item.later, "meals": item.meals ?? []]
+        return Write(method: "POST", path: "/api/shopping", body: try? JSONSerialization.data(withJSONObject: fields))
+    }
     static let clearDone = Write(method: "POST", path: "/api/shopping/clear")
 }
 

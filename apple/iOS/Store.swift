@@ -92,6 +92,11 @@ final class Store {
         submit(.add(name: name, aisle: aisle, later: later))
     }
 
+    /// Puts a deleted item back with the same details (it gets a new id).
+    func restore(_ item: Item) {
+        submit(.restore(item))
+    }
+
     func clearDone() {
         list.done.removeAll { $0.done }
         submit(.clearDone)

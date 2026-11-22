@@ -7,6 +7,7 @@ struct ListScreen: View {
     @State private var showDone = false
     @AppStorage("showLater") private var showLater = false
     @State private var laterUndo = LaterUndo()
+    @Environment(\.undoManager) private var undoManager
     @State private var showSettings = false
     @State private var photoFor: Item?          // the item a photo is being taken or chosen for
     @State private var choosingPhoto = false
@@ -49,7 +50,7 @@ struct ListScreen: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 6) {
                     if let item = laterUndo.item {
-                        UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store) }
+                        UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store, undo: undoManager) }
                     }
                     status
                     AddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
@@ -95,7 +96,7 @@ struct ListScreen: View {
                     .accessibilityLabel("Photo of \(item.name)")
             }
             if !item.done {
-                Button { laterUndo.toggle(item, in: store) } label: {
+                Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
                     Image(systemName: item.later ? "clock.fill" : "clock")
                         .font(.title3)
                         .foregroundStyle(item.later ? Theme.sun : Theme.muted)
@@ -118,8 +119,8 @@ struct ListScreen: View {
             }
         }
         .swipeActions(edge: .trailing) {
-            Button(role: .destructive) { store.delete(item.id) } label: { Label("Delete", systemImage: "trash") }
-            Button { laterUndo.toggle(item, in: store) } label: {
+            Button(role: .destructive) { ShoppingUndo.delete(item, store: store, undo: undoManager) } label: { Label("Delete", systemImage: "trash") }
+            Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
                 Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
             }
             .tint(Theme.raised)
@@ -127,7 +128,7 @@ struct ListScreen: View {
     }
 
     private func checkButton(_ item: Item) -> some View {
-        Button { store.setDone(item.id, !item.done) } label: {
+        Button { ShoppingUndo.setDone(item, !item.done, store: store, undo: undoManager) } label: {
             HStack(spacing: 14) {
                 CheckMark(done: item.done)
                 VStack(alignment: .leading, spacing: 2) {

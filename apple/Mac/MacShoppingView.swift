@@ -9,6 +9,7 @@ struct MacShoppingView: View {
     @AppStorage("showLater") private var showLater = false
     @State private var viewing: Item?
     @State private var laterUndo = LaterUndo()
+    @Environment(\.undoManager) private var undoManager
 
     private var groups: [ItemGroup] { store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep) }
 
@@ -36,7 +37,7 @@ struct MacShoppingView: View {
             }
             .overlay(alignment: .bottom) {
                 if let item = laterUndo.item {
-                    UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store) }
+                    UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store, undo: undoManager) }
                         .padding(.bottom, 14)
                 }
             }
@@ -115,7 +116,7 @@ struct MacShoppingView: View {
 
     private func row(_ item: Item) -> some View {
         HStack(spacing: 12) {
-            Button { store.setDone(item.id, !item.done) } label: { CheckMark(done: item.done, size: 20) }
+            Button { ShoppingUndo.setDone(item, !item.done, store: store, undo: undoManager) } label: { CheckMark(done: item.done, size: 20) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
             // One line across the row: name, amount and note, then (on the right) lookup, meal tag and photo.
@@ -141,7 +142,7 @@ struct MacShoppingView: View {
                 .accessibilityLabel("Photo of \(item.name)")
             }
             if !item.done {
-                Button { laterUndo.toggle(item, in: store) } label: {
+                Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
                     Image(systemName: item.later ? "clock.fill" : "clock")
                         .foregroundStyle(item.later ? Theme.sun : Theme.muted)
                         .frame(width: 28, height: 28)
@@ -154,13 +155,13 @@ struct MacShoppingView: View {
         }
         .padding(.vertical, 5)
         .contextMenu {
-            Button(item.later ? "Move to this trip" : "Move to later") { laterUndo.toggle(item, in: store) }
+            Button(item.later ? "Move to this trip" : "Move to later") { laterUndo.toggle(item, in: store, undo: undoManager) }
             Button("Choose photo…") { choosePhoto(for: item) }
             if item.photo?.isEmpty == false {
                 Button("Remove photo") { Task { await store.removePhoto(item.id) } }
             }
             Divider()
-            Button("Delete", role: .destructive) { store.delete(item.id) }
+            Button("Delete", role: .destructive) { ShoppingUndo.delete(item, store: store, undo: undoManager) }
         }
     }
 
