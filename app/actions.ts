@@ -13,6 +13,7 @@ import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
 import { clearDone, getHidden, parseChange, removeItem, setHidden, updateItem, type ItemChange } from "../lib/shopping.ts";
 import { addAndLookUp } from "../lib/aisles.ts";
+import { deleteRecipe, findRecipe, parseRecipe, saveRecipe } from "../lib/recipes.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -381,4 +382,43 @@ export async function toggleShoppingReason(reason: string) {
   const hidden = getHidden();
   setHidden(hidden.includes(reason) ? hidden.filter((h) => h !== reason) : [...hidden, reason]);
   refresh();
+}
+
+// Recipes
+export async function createRecipe(f: FormData) {
+  const recipe = parseRecipe({ name: str(f, "name") });
+  if ("error" in recipe) redirect(`/recipes?error=${encodeURIComponent(recipe.error)}`);
+  const existing = findRecipe(recipe.name);
+  const id = existing?.id ?? saveRecipe(recipe).recipe.id;
+  refresh();
+  redirect(`/recipes/${id}?edit=1`);
+}
+
+// The edit page sends the whole recipe: lines with no text and sections with no title are dropped (that's how they're removed).
+export async function saveRecipeForm(id: number, f: FormData) {
+  const all = (key: string) => f.getAll(key).map(String);
+  const texts = all("ingredientText"), buys = all("ingredientBuy"), groups = all("ingredientGroup");
+  const titles = all("sectionTitle"), bodies = all("sectionBody");
+  const recipe = parseRecipe({
+    name: str(f, "name"), summary: str(f, "summary"), serves: str(f, "serves"), activeTime: str(f, "activeTime"), totalTime: str(f, "totalTime"),
+    tags: str(f, "tags").split(","),
+    ingredients: texts.map((text, i) => ({ text, buy: buys[i] ?? "", group: groups[i] ?? "" })).filter((i) => i.text.trim()),
+    sections: titles.map((title, i) => ({ title, body: (bodies[i] ?? "").replace(/\r\n/g, "\n") })).filter((s) => s.title.trim()),
+    meals: all("meals"),
+  });
+  const back = (error: string) => redirect(`/recipes/${id}?edit=1&error=${encodeURIComponent(error)}`);
+  if ("error" in recipe) return back(recipe.error);
+  try {
+    saveRecipe(recipe, id);
+  } catch (e) {
+    return back((e as Error).message);
+  }
+  refresh();
+  redirect(`/recipes/${id}`);
+}
+
+export async function deleteRecipeAction(id: number) {
+  deleteRecipe(id);
+  refresh();
+  redirect("/recipes");
 }

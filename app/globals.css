@@ -507,3 +507,30 @@ button.shop-meals:hover { border-color: var(--sun); }
 .shop-photo-pick { cursor: pointer; border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; min-height: 34px; display: inline-flex; align-items: center; background: var(--surface); }
 .shop-photo-pick:hover { background: var(--raised); border-color: var(--muted); }
 .shop-photo-pick:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Recipes */
+.recipe-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.recipe-filters .shop-reason { text-decoration: none; }
+.recipe-filters .shop-reason[aria-pressed="false"] { text-decoration: none; }
+.recipe-title { justify-content: space-between; align-items: baseline; }
+.recipe-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.recipe-section { margin-top: 22px; max-width: 760px; }
+.recipe-section h3 { font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+.recipe-ingredients { list-style: none; margin: 0; padding: 0; }
+.recipe-ingredients .md ul { margin: 0; padding-left: 18px; }
+.md ul { margin: 4px 0; padding-left: 20px; }
+.md li { margin: 3px 0; line-height: 1.5; }
+.md-line { display: block; }
+.lede .md ul { list-style: none; padding: 0; }
+.recipe-edit { display: grid; gap: 12px; max-width: 900px; }
+.recipe-edit > label, .recipe-edit .row label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.recipe-edit input:not([type="checkbox"]), .recipe-edit textarea { width: 100%; }
+.recipe-edit textarea { font: inherit; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); resize: vertical; }
+.recipe-edit td { padding: 3px 4px; }
+.recipe-edit-section { display: grid; gap: 6px; }
+.recipe-meals { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 16px; }
+.recipe-edit-bar { position: sticky; bottom: 0; padding: 12px 0; background: var(--bg); border-top: 1px solid var(--line); }
+.recipe-delete { margin-top: 18px; }
+a.button { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); text-decoration: none; }
+a.button:hover { background: var(--raised); border-color: var(--muted); }
+p.error { color: var(--bad); }

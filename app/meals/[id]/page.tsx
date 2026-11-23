@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { recipesOfMeal } from "../../../lib/recipes.ts";
 import { getMeal, listIngredients } from "../../../lib/queries.ts";
 import { NUTRIENT_GROUPS } from "../../../lib/nutrients.ts";
 import { BackLink } from "../../ui.tsx";
@@ -10,11 +12,17 @@ export default async function MealPage({ params }: { params: Promise<{ id: strin
   const meal = getMeal(Number((await params).id));
   if (!meal) notFound();
   const approved = listIngredients("approved");
+  const recipes = recipesOfMeal(meal.id);
   return (
     <>
       <BackLink href="/meals">All meals</BackLink>
       <h1><RenameTitle id={meal.id} name={meal.name} action={renameMeal} />{meal.status === "proposed" && <span className="badge proposed">proposed</span>}</h1>
       <p className="lede">{[meal.typical_slot, meal.source, meal.notes].filter(Boolean).join(" · ")}</p>
+      {recipes.length > 0 && (
+        <p className="muted">Made from the recipe{recipes.length > 1 ? "s" : ""}{" "}
+          {recipes.map((r, i) => <span key={r.id}>{i > 0 && ", "}<Link href={`/recipes/${r.id}`}>{r.name}</Link></span>)}
+        </p>
+      )}
       {meal.status === "proposed" && <form action={approve.bind(null, "meal", meal.id)}><button className="primary">Approve meal</button></form>}
       <form action={setMealOccasional.bind(null, meal.id, !meal.occasional)} className="row">
         {meal.occasional ? <span className="badge use-occasional" style={{ marginLeft: 0 }}>occasional</span> : null}

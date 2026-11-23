@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start -H 127.0.0.1 -p 3100",
     "test": "node --test lib/*.test.ts",
-    "import": "node scripts/import-xlsx.ts"
+    "import": "node scripts/import-xlsx.ts",
+    "import-recipes": "node scripts/import-recipes.ts"
   },
   "type": "module",
   "dependencies": {
