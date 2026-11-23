@@ -45,7 +45,7 @@ targets:
     type: application
     platform: macOS
     # The shopping list's store and API are shared with the iPhone app; the rest is Mac-only.
-    sources: [Mac, Shared, iOS/Store.swift, iOS/API.swift, iOS/LaterUndo.swift]
+    sources: [Mac, Shared, iOS/Store.swift, iOS/API.swift, iOS/ShoppingUndo.swift]
     info:
       path: Mac/Info.plist
       properties:

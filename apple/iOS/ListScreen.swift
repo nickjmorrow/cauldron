@@ -6,7 +6,7 @@ struct ListScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showDone = false
     @AppStorage("showLater") private var showLater = false
-    @State private var laterUndo = LaterUndo()
+    @State private var grace = Grace()
     @Environment(\.undoManager) private var undoManager
     @State private var showSettings = false
     @State private var photoFor: Item?          // the item a photo is being taken or chosen for
@@ -18,7 +18,7 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep)) { group in
+                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
@@ -62,9 +62,6 @@ struct ListScreen: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 6) {
-                    if let item = laterUndo.item {
-                        UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store, undo: undoManager) }
-                    }
                     status
                     AddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
                 }
@@ -91,7 +88,7 @@ struct ListScreen: View {
         }
         .task { await store.sync() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await store.sync() } }
+            if phase == .active { Task { await store.sync() } } else { grace.applyAll() }
         }
     }
 
@@ -100,16 +97,17 @@ struct ListScreen: View {
         await store.setPhoto(item.id, jpeg: jpeg)
     }
 
-    private func row(_ item: Item) -> some View {
-        HStack(spacing: 12) {
-            checkButton(item)
-            if let url = store.photoURL(item) {
-                Button { viewing = item } label: { Thumbnail(url: url) }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Photo of \(item.name)")
+    private func row(_ stored: Item) -> some View {
+        let item = grace.shown(stored)
+        return HStack(spacing: 0) {
+            Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: {
+                CheckMark(done: item.done).frame(height: 44).contentShape(Rectangle())
             }
-            if !item.done {
-                Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
+            // The clock sits beside the checkbox it belongs to. It stays (dimmed) while a check-off waits, so the row doesn't shift.
+            if !stored.done {
+                Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
                     Image(systemName: item.later ? "clock.fill" : "clock")
                         .font(.title3)
                         .foregroundStyle(item.later ? Theme.sun : Theme.muted)
@@ -117,7 +115,16 @@ struct ListScreen: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(item.done)
+                .opacity(item.done ? 0.35 : 1)
                 .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
+            }
+            nameButton(item, stored: stored).padding(.leading, stored.done ? 14 : 0)
+            if let url = store.photoURL(item) {
+                Button { viewing = item } label: { Thumbnail(url: url) }
+                    .buttonStyle(.plain)
+                    .padding(.leading, 12)
+                    .accessibilityLabel("Photo of \(item.name)")
             }
         }
         .listRowBackground(Theme.surface)
@@ -132,18 +139,18 @@ struct ListScreen: View {
             }
         }
         .swipeActions(edge: .trailing) {
-            Button(role: .destructive) { ShoppingUndo.delete(item, store: store, undo: undoManager) } label: { Label("Delete", systemImage: "trash") }
-            Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
+            Button(role: .destructive) { ShoppingUndo.delete(stored, store: store, undo: undoManager) } label: { Label("Delete", systemImage: "trash") }
+            Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
                 Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
             }
             .tint(Theme.raised)
         }
     }
 
-    private func checkButton(_ item: Item) -> some View {
-        Button { ShoppingUndo.setDone(item, !item.done, store: store, undo: undoManager) } label: {
-            HStack(spacing: 14) {
-                CheckMark(done: item.done)
+    /// The name and details: tapping them checks the item off, like the checkbox.
+    private func nameButton(_ item: Item, stored: Item) -> some View {
+        Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: {
+            HStack(spacing: 0) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
                         .font(.title3.weight(.medium))

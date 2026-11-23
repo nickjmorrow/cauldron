@@ -13,6 +13,7 @@ struct CauldronWatchApp: App {
 
 struct WatchList: View {
     var store: WatchStore
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -20,7 +21,7 @@ struct WatchList: View {
                 ForEach(store.groups) { group in
                     Section {
                         ForEach(group.items) { item in
-                            Button { withAnimation { store.checkOff(item) } } label: { row(item) }
+                            Button { store.tap(item) } label: { row(item) }
                                 .listRowBackground(RoundedRectangle(cornerRadius: 14).fill(Theme.raised))
                         }
                     } header: {
@@ -40,11 +41,14 @@ struct WatchList: View {
             .navigationTitle("Shopping")
             .containerBackground(Theme.bg.gradient, for: .navigation)
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { store.finishAll() }
+        }
     }
 
     private func row(_ item: Item) -> some View {
         HStack(spacing: 10) {
-            CheckMark(done: false, size: 22)
+            CheckMark(done: store.ticked.contains(item.id), size: 22)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name).font(.title3.weight(.medium)).foregroundStyle(Theme.fg)
                 let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")

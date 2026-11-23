@@ -56,22 +56,3 @@ struct LookingNote: View {
             .font(.caption).foregroundStyle(Theme.muted)
     }
 }
-
-/// "Celery is set for later · Undo": shown for a few seconds after an item is set for a later trip.
-struct UndoNote: View {
-    var text: String
-    var undo: () -> Void
-
-    var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "clock.fill").foregroundStyle(Theme.sun)
-            Text(text).foregroundStyle(Theme.fg).lineLimit(1)
-            Button("Undo", action: undo).buttonStyle(.plain).fontWeight(.semibold).foregroundStyle(Theme.sun)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .background(Theme.raised, in: Capsule())
-        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
-        .shadow(color: .black.opacity(0.35), radius: 12, y: 6)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-}

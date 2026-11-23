@@ -1,5 +1,8 @@
 import Foundation
 
+/// How long a tap on a checkbox or clock waits before it takes effect, so it can be tapped back first.
+let graceSeconds = 2.0
+
 /// One line of the shopping list, as the server sends it.
 struct Item: Codable, Identifiable, Hashable {
     var id: Int
@@ -38,12 +41,10 @@ struct ShoppingList: Codable, Hashable {
     var groups: [ItemGroup] = []
     var done: [Item] = []
 
-    /// Marks an item in place, wherever it is, without moving it between sections.
-    /// The groups with "later" items left out unless `showLater` (items in `keep` always stay, so one just set for later
-    /// can still be undone where it is); groups left empty are dropped.
-    func visibleGroups(showLater: Bool, keep: Set<Int> = []) -> [ItemGroup] {
+    /// The groups with "later" items left out unless `showLater`; groups left empty are dropped.
+    func visibleGroups(showLater: Bool) -> [ItemGroup] {
         groups.compactMap { group in
-            let items = showLater ? group.items : group.items.filter { !$0.later || keep.contains($0.id) }
+            let items = showLater ? group.items : group.items.filter { !$0.later }
             return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
         }
     }
@@ -51,6 +52,7 @@ struct ShoppingList: Codable, Hashable {
     var laterCount: Int { groups.reduce(0) { $0 + $1.items.filter(\.later).count } }
     var anyLooking: Bool { groups.contains { $0.items.contains(where: \.isLooking) } }
 
+    /// Marks an item in place, wherever it is, without moving it between sections.
     mutating func update(_ id: Int, _ change: (inout Item) -> Void) {
         for g in groups.indices {
             for i in groups[g].items.indices where groups[g].items[i].id == id { change(&groups[g].items[i]) }

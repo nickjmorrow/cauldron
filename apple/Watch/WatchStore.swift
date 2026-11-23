@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import WatchConnectivity
 import WatchKit
 
@@ -14,6 +15,9 @@ final class WatchStore: NSObject, WCSessionDelegate {
         didSet { UserDefaults.standard.set(Array(checked), forKey: "checked") }
     }
     @ObservationIgnored private var received: ShoppingList?
+    /// Tapped and shown ticked, but not yet checked off: a second tap within the wait takes it back.
+    private(set) var ticked: Set<Int> = []
+    @ObservationIgnored private var waiting: [Int: Task<Void, Never>] = [:]
     #if DEBUG
     @ObservationIgnored private var debugFired = false
     #endif
@@ -24,10 +28,37 @@ final class WatchStore: NSObject, WCSessionDelegate {
         WCSession.default.activate()
     }
 
+    /// Ticks an item; it's checked off after a short wait unless tapped again first.
+    func tap(_ item: Item) {
+        WKInterfaceDevice.current().play(.click)
+        if let timer = waiting.removeValue(forKey: item.id) {
+            timer.cancel()
+            ticked.remove(item.id)
+            return
+        }
+        ticked.insert(item.id)
+        waiting[item.id] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(graceSeconds))
+            guard !Task.isCancelled else { return }
+            self?.finish(item)
+        }
+    }
+
+    /// Checks off everything still waiting (the app is leaving the screen).
+    func finishAll() {
+        let items = groups.flatMap(\.items).filter { ticked.contains($0.id) }
+        for item in items { finish(item) }
+    }
+
+    private func finish(_ item: Item) {
+        waiting.removeValue(forKey: item.id)?.cancel()
+        ticked.remove(item.id)
+        withAnimation { checkOff(item) }
+    }
+
     func checkOff(_ item: Item) {
         checked.insert(item.id)
         show()
-        WKInterfaceDevice.current().play(.click)
         // The system-queued transfer is a backup: in the simulator it never reached the phone app, so the check-off is
         // also kept in `checked` and sent as a message whenever the phone is reachable (see sendUnconfirmed).
         WCSession.default.transferUserInfo(WatchLink.check(id: item.id, done: true))

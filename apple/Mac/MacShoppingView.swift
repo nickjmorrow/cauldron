@@ -8,10 +8,10 @@ struct MacShoppingView: View {
     @State private var showDone = false
     @AppStorage("showLater") private var showLater = false
     @State private var viewing: Item?
-    @State private var laterUndo = LaterUndo()
+    @State private var grace = Grace()
     @Environment(\.undoManager) private var undoManager
 
-    private var groups: [ItemGroup] { store.list.visibleGroups(showLater: showLater, keep: laterUndo.keep) }
+    private var groups: [ItemGroup] { store.list.visibleGroups(showLater: showLater) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,13 +40,6 @@ struct MacShoppingView: View {
                         .foregroundStyle(Theme.muted)
                 }
             }
-            .overlay(alignment: .bottom) {
-                if let item = laterUndo.item {
-                    UndoNote(text: "\(item.name) is set for later") { laterUndo.undo(in: store, undo: undoManager) }
-                        .padding(.bottom, 14)
-                }
-            }
-            .animation(.snappy, value: laterUndo.item?.id)
         }
         .task { await store.sync() }
         .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
@@ -54,6 +47,7 @@ struct MacShoppingView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await store.sync() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in grace.applyAll() }
         .toolbar {
             Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
         }
@@ -117,11 +111,27 @@ struct MacShoppingView: View {
         }
     }
 
-    private func row(_ item: Item) -> some View {
-        HStack(spacing: 12) {
-            Button { ShoppingUndo.setDone(item, !item.done, store: store, undo: undoManager) } label: { CheckMark(done: item.done, size: 20) }
+    private func row(_ stored: Item) -> some View {
+        let item = grace.shown(stored)
+        return HStack(spacing: 12) {
+            Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: { CheckMark(done: item.done, size: 20) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
+            // The clock sits beside the checkbox it belongs to. It stays (dimmed) while a check-off waits, so the row doesn't shift.
+            if !stored.done {
+                Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
+                    Image(systemName: item.later ? "clock.fill" : "clock")
+                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(item.done)
+                .opacity(item.done ? 0.35 : 1)
+                .padding(.horizontal, -6)
+                .help(item.later ? "Later: click to get it this trip" : "Click to leave it for later")
+                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
+            }
             // One line across the row: name, amount and note, then (on the right) lookup, meal tag and photo.
             Text(item.name)
                 .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
@@ -144,27 +154,16 @@ struct MacShoppingView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo of \(item.name)")
             }
-            if !item.done {
-                Button { laterUndo.toggle(item, in: store, undo: undoManager) } label: {
-                    Image(systemName: item.later ? "clock.fill" : "clock")
-                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help(item.later ? "Later: click to get it this trip" : "Click to leave it for later")
-                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
-            }
         }
         .padding(.vertical, 5)
         .contextMenu {
-            Button(item.later ? "Move to this trip" : "Move to later") { laterUndo.toggle(item, in: store, undo: undoManager) }
+            Button(item.later ? "Move to this trip" : "Move to later") { grace.toggleLater(stored, in: store, undo: undoManager) }
             Button("Choose photo…") { choosePhoto(for: item) }
             if item.photo?.isEmpty == false {
                 Button("Remove photo") { Task { await store.removePhoto(item.id) } }
             }
             Divider()
-            Button("Delete", role: .destructive) { ShoppingUndo.delete(item, store: store, undo: undoManager) }
+            Button("Delete", role: .destructive) { ShoppingUndo.delete(stored, store: store, undo: undoManager) }
         }
     }
 
