@@ -11,7 +11,7 @@ import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAl
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
-import { clearDone, parseChange, removeItem, updateItem, type ItemChange } from "../lib/shopping.ts";
+import { clearDone, getHidden, parseChange, removeItem, setHidden, updateItem, type ItemChange } from "../lib/shopping.ts";
 import { addAndLookUp } from "../lib/aisles.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
@@ -341,7 +341,7 @@ export async function saveProfile(_: ProfileState, form: FormData): Promise<Prof
 }
 
 export async function addShoppingItem(f: FormData) {
-  const change = parseChange({ name: str(f, "name"), qty: str(f, "qty"), aisle: str(f, "aisle"), meals: mealList(str(f, "meals")), later: f.get("later") === "on" }, { needsName: true });
+  const change = parseChange({ name: str(f, "name"), qty: str(f, "qty"), aisle: str(f, "aisle"), meals: pickedReasons(f) }, { needsName: true });
   if ("error" in change) return; // the name field is required, so only a blank name gets here
   addAndLookUp({ ...change, name: change.name! });
   refresh();
@@ -362,11 +362,12 @@ export async function setShoppingAisle(id: number, f: FormData) {
   refresh();
 }
 
-// "Stuffing, Roast chicken" -> ["Stuffing", "Roast chicken"]
-const mealList = (text: string) => text.split(",").map((m) => m.trim()).filter(Boolean);
+// The reason picker: the ticked reasons plus any new ones typed in ("Stuffing, Roast chicken" is two reasons).
+const pickedReasons = (f: FormData) =>
+  [...f.getAll("meals").map(String), ...str(f, "newMeals").split(",")].map((m) => m.trim()).filter(Boolean);
 
 export async function setShoppingMeals(id: number, f: FormData) {
-  const change = parseChange({ meals: mealList(str(f, "meals")) }, { needsName: false });
+  const change = parseChange({ meals: pickedReasons(f) }, { needsName: false });
   if ("error" in change) return;
   updateItem(id, change);
   refresh();
@@ -379,5 +380,12 @@ export async function removeShoppingItem(id: number) {
 
 export async function clearShoppingDone() {
   clearDone();
+  refresh();
+}
+
+// A reason chip above the list: switches that reason's items off for this trip, or back on.
+export async function toggleShoppingReason(reason: string) {
+  const hidden = getHidden();
+  setHidden(hidden.includes(reason) ? hidden.filter((h) => h !== reason) : [...hidden, reason]);
   refresh();
 }

@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS ingredient_locations (
   location_id INTEGER NOT NULL REFERENCES locations(id) ON DELETE CASCADE,
   PRIMARY KEY (ingredient_id, location_id)
 );
--- The shopping list. aisle is a number ("4") or a named area ("Produce"); later = not for this trip.
+-- The shopping list. aisle is a number ("4") or a named area ("Produce"). later is no longer used: it became the reason "Later".
 -- done_at is when it was checked off; cleared = hidden after the trip but kept, so its aisle is remembered.
 CREATE TABLE IF NOT EXISTS shopping_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -154,6 +154,10 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   aisle_from TEXT NOT NULL DEFAULT '', -- where the aisle came from: 'you', 'remembered', 'store' (looked up), 'guess', or ''
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
   meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
+);
+-- Reasons switched off for this trip: their items are hidden. '' = items with no reason.
+CREATE TABLE IF NOT EXISTS shopping_hidden (
+  reason TEXT PRIMARY KEY
 );
 -- What each numbered aisle of the store holds ("Pasta, condiments, Mexican and Asian foods"), shown next to its heading.
 CREATE TABLE IF NOT EXISTS aisle_contents (
@@ -275,6 +279,7 @@ function migrate(db: DatabaseSync) {
     const sections = SECTIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(", ");
     db.exec(`UPDATE shopping_items SET aisle_from = 'guess' WHERE aisle IN (${sections})`);
   }
+  migrateLater(db);
   // Made-up areas ("Pantry", "Household"...) aren't places in the store: those items have no aisle until one is known.
   const retired = RETIRED_SECTIONS.map((s) => `'${s.replace(/'/g, "''")}'`).join(", ");
   db.exec(`UPDATE shopping_items SET aisle = '', aisle_from = 'guess' WHERE aisle IN (${retired}) AND aisle_from != 'you'`);
@@ -282,6 +287,16 @@ function migrate(db: DatabaseSync) {
   if (!placements.some((c) => c.name === "status")) {
     db.exec("ALTER TABLE ingredient_locations ADD COLUMN status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('proposed','approved'));");
   }
+}
+
+// "Later" used to be a switch on the item; it's now a reason like any other, hidden until it's switched on.
+export function migrateLater(db: DatabaseSync): void {
+  const later = db.prepare("SELECT id, meals FROM shopping_items WHERE later = 1").all() as { id: number; meals: string }[];
+  for (const row of later) {
+    const meals = [...new Set([...(JSON.parse(row.meals) as string[]), "Later"])];
+    db.prepare("UPDATE shopping_items SET meals = ?, later = 0 WHERE id = ?").run(JSON.stringify(meals), row.id);
+  }
+  if (later.length > 0) db.prepare("INSERT OR IGNORE INTO shopping_hidden (reason) VALUES ('Later')").run();
 }
 
 let db: DatabaseSync | undefined;

@@ -469,17 +469,28 @@ button.meal-open:focus-visible { outline: 2px solid var(--focus); outline-offset
   margin: 0 -24px 8px; padding: 12px 24px; background: color-mix(in oklch, var(--bg) 94%, transparent);
   backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
 .shop-bar .shop-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 520px; }
-.shop-bar .shop-later-toggle { margin: 0; }
 .shop-map { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
 .shop-map summary { cursor: pointer; font-weight: 500; }
 .shop-map-list { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 12px 0; font-size: 14px; }
 .shop-map-list div { display: contents; }
 .shop-map-list dt { font-weight: 500; }
 .shop-map-list dd { margin: 0; color: var(--muted); }
-.shop-later-toggle { margin: 4px 0 14px; font-size: 14px; }
-.shop-later-toggle a { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px;
-  color: var(--fg); text-decoration: none; background: var(--surface); border: 1px solid var(--line); }
-.shop-later-toggle a:hover { border-color: var(--muted); background: var(--raised); }
+/* Reason chips: filled = shown on this trip, outlined = hidden. */
+.shop-reasons { display: flex; flex-wrap: wrap; gap: 8px; flex-basis: 100%; }
+.shop-reason { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 6px 14px; border-radius: 999px; font-size: 14px;
+  color: var(--muted); background: transparent; border: 1px solid var(--line); text-decoration: line-through; }
+.shop-reason[aria-pressed="true"] { color: var(--sun); text-decoration: none; background: color-mix(in oklch, var(--sun) 12%, transparent);
+  border-color: color-mix(in oklch, var(--sun) 35%, transparent); }
+.shop-reason:hover { border-color: var(--muted); }
+.shop-reason-count { font-size: 12px; opacity: 0.75; text-decoration: none; display: inline-block; }
+.shop-for { position: relative; }
+.shop-for summary { cursor: pointer; min-height: 40px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--surface); list-style: none; max-width: 260px; overflow: hidden; white-space: nowrap; }
+.shop-for summary::-webkit-details-marker { display: none; }
+.shop-for-body { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 10px 0 4px; }
+.shop-for-body input[name="newMeals"] { flex: 1 0 100%; max-width: 420px; }
+.shop-bar .shop-for[open] { flex-basis: 100%; }
+.shop-for-body label { min-height: 34px; }
 .shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; min-height: 40px; display: inline-flex; align-items: center; gap: 7px; list-style: none; border-radius: 6px; }
 .shop-edit summary::-webkit-details-marker { display: none; }
 .shop-edit summary::after { content: ""; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1); }

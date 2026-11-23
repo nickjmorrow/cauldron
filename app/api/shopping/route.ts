@@ -1,9 +1,9 @@
 // JSON API for the shopping list, used by the phone and watch apps. No authentication: see the README on running behind a VPN.
 import { addAndLookUp } from "../../../lib/aisles.ts";
-import { groupItems, listItems, parseChange } from "../../../lib/shopping.ts";
+import { parseChange, shoppingList } from "../../../lib/shopping.ts";
 
 export async function GET() {
-  return Response.json(groupItems(listItems()));
+  return Response.json(shoppingList());
 }
 
 export async function POST(request: Request) {

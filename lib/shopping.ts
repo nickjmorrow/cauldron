@@ -1,24 +1,33 @@
-// The shopping list: things to buy, grouped by the store aisle they're in, with a "later" pile for things
-// that aren't for this trip. Checked-off items stay until they're cleared, so a mistaken tap can be undone.
+// The shopping list: things to buy, grouped by the store aisle they're in. Each item can say what it's for (meals,
+// an occasion, any reason), and a reason can be switched off to hide its items from this trip.
+// Checked-off items stay until they're cleared, so a mistaken tap can be undone.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDb, PHOTOS_DIR } from "./db.ts";
+import { mealsUsing } from "./item-meals.ts";
 import { guessSection, sectionRank } from "./sections.ts";
 import { getAisleContents } from "./store-map.ts";
 
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
 // aisleFrom: where the aisle came from ('you', 'remembered', 'store' when looked up, 'guess' from the name, or '').
-// looking: the store's aisle is being looked up right now. meals: the meals or recipes it's bought for.
+// looking: the store's aisle is being looked up right now. meals: what it's bought for (meals, recipes or any other reason).
+// later: it has the reason "Later" (the clock on a row is a one-tap way to give or take that reason).
 export type ShoppingItem = {
   id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string; photo: string;
   aisleFrom: string; looking: boolean; meals: string[];
 };
 // holds: what the aisle holds, when known ("" otherwise).
 export type ShoppingGroup = { title: string; holds: string; items: ShoppingItem[] };
-export type ShoppingList = { groups: ShoppingGroup[]; done: ShoppingItem[] };
+// reasons: every reason an item can be given, the ones on the list first. hidden: the reasons switched off for this
+// trip (NO_REASON stands for items with no reason).
+export type ShoppingList = { groups: ShoppingGroup[]; done: ShoppingItem[]; reasons: string[]; hidden: string[] };
 export type ItemChange = Partial<Omit<ShoppingItem, "id" | "photo" | "aisleFrom" | "looking">>;
 
 export const NO_AISLE = "No aisle yet";
+export const INBOX = "Inbox";
+export const NO_REASON = "";
+export const LATER = "Later";
+const MAX_REASONS = 40;
 const MAX_MEALS = 10;
 const TEXT_FIELDS = ["name", "qty", "aisle", "note"] as const;
 const FLAG_FIELDS = ["later", "done"] as const;
@@ -33,14 +42,21 @@ const IMAGE_SIGNATURES: { type: string; matches: (b: Uint8Array) => boolean }[] 
 ];
 
 type Row = {
-  id: number; name: string; qty: string; aisle: string; later: number; note: string; done_at: string | null; photo_type: string; photo_at: string;
+  id: number; name: string; qty: string; aisle: string; note: string; done_at: string | null; photo_type: string; photo_at: string;
   aisle_from: string; lookup: number; meals: string;
 };
-const toItem = (r: Row): ShoppingItem => ({
-  id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, later: r.later === 1, done: r.done_at !== null, note: r.note,
-  photo: r.photo_type ? r.photo_at : "", aisleFrom: r.aisle_from, looking: r.lookup === 1, meals: JSON.parse(r.meals) as string[],
-});
-const COLUMNS = "id, name, qty, aisle, later, note, done_at, photo_type, photo_at, aisle_from, lookup, meals";
+const isLater = (reason: string) => reason.toLowerCase() === LATER.toLowerCase();
+const toItem = (r: Row): ShoppingItem => {
+  const meals = JSON.parse(r.meals) as string[];
+  return {
+    id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, later: meals.some(isLater), done: r.done_at !== null, note: r.note,
+    photo: r.photo_type ? r.photo_at : "", aisleFrom: r.aisle_from, looking: r.lookup === 1, meals,
+  };
+};
+// The reasons after a change: "later" gives or takes the reason Later, and wins over the list sent with it.
+const withLater = (meals: string[], later: boolean | undefined) =>
+  later === undefined ? meals : later ? (meals.some(isLater) ? meals : [...meals, LATER]) : meals.filter((m) => !isLater(m));
+const COLUMNS = "id, name, qty, aisle, note, done_at, photo_type, photo_at, aisle_from, lookup, meals";
 
 // "4" reads as "Aisle 4"; a named area such as "Produce" is shown as written.
 export function aisleTitle(aisle: string): string {
@@ -62,13 +78,69 @@ function compareAisles(a: string, b: string): number {
   return sectionRank(a) - sectionRank(b) || a.localeCompare(b, undefined, { sensitivity: "base" });
 }
 
-// Every open item by aisle, "later" ones included (clients choose whether to show them); done items are listed apart.
-export function groupItems(items: ShoppingItem[], contents: Record<string, string> = getAisleContents()): ShoppingList {
+// Every open item by aisle, hidden ones included (clients leave those out: see isShown); done items are listed apart.
+// Items whose aisle is still being looked up wait in a first group, the Inbox, and move to their aisle when it ends.
+export function groupItems(items: ShoppingItem[], contents: Record<string, string> = getAisleContents()): Pick<ShoppingList, "groups" | "done"> {
   const open = items.filter((i) => !i.done);
-  const aisles = [...new Set(open.map((i) => i.aisle))].sort(compareAisles);
+  const placed = open.filter((i) => !i.looking);
+  const aisles = [...new Set(placed.map((i) => i.aisle))].sort(compareAisles);
   const byName = (a: ShoppingItem, b: ShoppingItem) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
-  const groups = aisles.map((aisle) => ({ title: aisleTitle(aisle), holds: contents[aisle] ?? "", items: open.filter((i) => i.aisle === aisle).sort(byName) }));
+  const groups = aisles.map((aisle) => ({ title: aisleTitle(aisle), holds: contents[aisle] ?? "", items: placed.filter((i) => i.aisle === aisle).sort(byName) }));
+  const inbox = open.filter((i) => i.looking).sort(byName);
+  if (inbox.length > 0) groups.unshift({ title: INBOX, holds: "", items: inbox });
   return { groups, done: items.filter((i) => i.done) };
+}
+
+// An item is on this trip when one of its reasons is switched on; an item with no reason follows NO_REASON.
+// Later is the exception: while it's off, an item marked Later is hidden whatever else it's for.
+export function isShown(item: ShoppingItem, hidden: string[]): boolean {
+  const off = new Set(hidden.map((h) => h.toLowerCase()));
+  if (item.meals.length === 0) return !off.has(NO_REASON);
+  if (item.later && off.has(LATER.toLowerCase())) return false;
+  return item.meals.some((m) => !off.has(m.toLowerCase()));
+}
+
+export function getHidden(): string[] {
+  return (getDb().prepare("SELECT reason FROM shopping_hidden ORDER BY reason").all() as { reason: string }[]).map((r) => r.reason);
+}
+
+export function setHidden(reasons: string[]): void {
+  const db = getDb();
+  db.exec("BEGIN");
+  db.exec("DELETE FROM shopping_hidden");
+  for (const reason of reasons) db.prepare("INSERT OR IGNORE INTO shopping_hidden (reason) VALUES (?)").run(reason);
+  db.exec("COMMIT");
+}
+
+// Checks {"hidden": [...]} from outside. Returns the cleaned names, or what was wrong.
+export function parseHidden(input: unknown): string[] | { error: string } {
+  const hidden = (input as { hidden?: unknown } | null)?.hidden;
+  if (!Array.isArray(hidden) || hidden.some((h) => typeof h !== "string")) return { error: 'Send {"hidden": [...]}: the reasons to hide ("" for items with no reason).' };
+  const names = [...new Set((hidden as string[]).map((h) => h.trim()))];
+  if (names.some((h) => h.length > MAX_TEXT)) return { error: `A reason is longer than ${MAX_TEXT} characters.` };
+  return names;
+}
+
+// The reasons to offer when picking: those on the list now (A to Z), then ones used before, most recent first.
+export function listReasons(): string[] {
+  const rows = getDb().prepare("SELECT meals, cleared, done_at FROM shopping_items WHERE meals != '[]' ORDER BY id DESC").all() as { meals: string; cleared: number; done_at: string | null }[];
+  const seen = new Set<string>();
+  const current: string[] = [], past: string[] = [];
+  const take = (into: string[], row: { meals: string }) => {
+    for (const m of JSON.parse(row.meals) as string[]) {
+      if (seen.has(m.toLowerCase())) continue;
+      seen.add(m.toLowerCase());
+      into.push(m);
+    }
+  };
+  for (const row of rows.filter((r) => !r.cleared && r.done_at === null)) take(current, row);
+  for (const row of rows) take(past, row);
+  current.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return [...current, ...past].slice(0, Math.max(MAX_REASONS, current.length));
+}
+
+export function shoppingList(): ShoppingList {
+  return { ...groupItems(listItems()), reasons: listReasons(), hidden: getHidden() };
 }
 
 // Checks a change that came from outside (a form or the API). Returns the cleaned change, or what was wrong with it.
@@ -92,8 +164,8 @@ export function parseChange(input: unknown, { needsName }: { needsName: boolean 
     const meals = body.meals;
     if (!Array.isArray(meals) || meals.some((m) => typeof m !== "string")) return { error: "meals must be a list of names." };
     const names = [...new Set((meals as string[]).map((m) => m.trim()).filter(Boolean))];
-    if (names.length > MAX_MEALS) return { error: `An item can be for at most ${MAX_MEALS} meals.` };
-    if (names.some((m) => m.length > MAX_TEXT)) return { error: `A meal name is longer than ${MAX_TEXT} characters.` };
+    if (names.length > MAX_MEALS) return { error: `An item can have at most ${MAX_MEALS} reasons.` };
+    if (names.some((m) => m.length > MAX_TEXT)) return { error: `A reason is longer than ${MAX_TEXT} characters.` };
     change.meals = names;
   }
   if (change.name === "" || (needsName && change.name === undefined)) return { error: "An item needs a name." };
@@ -127,13 +199,15 @@ const photoPath = (id: number) => join(PHOTOS_DIR, String(id));
 
 // The aisle comes from what was typed, else the last time this item was on the list, else a guess from its name.
 // With lookUp, a guessed item is marked as being looked up; the caller starts the lookup (lib/aisles.ts).
+// Added with no reason, it's for the meals that use it, when there are any (lib/item-meals.ts).
 export function addItem(change: ItemChange & { name: string }, { lookUp = false } = {}): ShoppingItem {
   const remembered = change.aisle ? "" : rememberedAisle(change.name);
   const [aisle, from] = change.aisle ? [change.aisle, "you"] : remembered ? [remembered, "remembered"] : [guessSection(change.name), "guess"];
   const photo = rememberedPhoto(change.name);
-  const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, later, note, done_at, aisle_from, lookup, meals) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-    .run(change.name, change.qty ?? "", aisle, change.later ? 1 : 0, change.note ?? "", change.done ? new Date().toISOString() : null,
-      from, lookUp && from === "guess" ? 1 : 0, JSON.stringify(change.meals ?? []));
+  const meals = withLater(change.meals?.length ? change.meals : mealsUsing(change.name), change.later);
+  const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, note, done_at, aisle_from, lookup, meals) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .run(change.name, change.qty ?? "", aisle, change.note ?? "", change.done ? new Date().toISOString() : null,
+      from, lookUp && from === "guess" ? 1 : 0, JSON.stringify(meals));
   const id = Number(result.lastInsertRowid);
   if (photo && existsSync(photoPath(photo.id))) {
     copyFileSync(photoPath(photo.id), photoPath(id));
@@ -149,8 +223,8 @@ export function updateItem(id: number, change: ItemChange): ShoppingItem | undef
   // Keep the time it was first checked off, so re-sending "done" doesn't move it up the done list.
   const doneAt = after.done ? (before.done ? undefined : new Date().toISOString()) : null;
   const db = getDb();
-  db.prepare("UPDATE shopping_items SET name = ?, qty = ?, aisle = ?, later = ?, note = ?, meals = ? WHERE id = ?")
-    .run(after.name, after.qty, after.aisle, after.later ? 1 : 0, after.note, JSON.stringify(after.meals), id);
+  db.prepare("UPDATE shopping_items SET name = ?, qty = ?, aisle = ?, note = ?, meals = ? WHERE id = ?")
+    .run(after.name, after.qty, after.aisle, after.note, JSON.stringify(withLater(after.meals, change.later)), id);
   // An aisle set by hand wins over any lookup still running.
   if (change.aisle !== undefined && change.aisle !== before.aisle) db.prepare("UPDATE shopping_items SET aisle_from = 'you', lookup = 0 WHERE id = ?").run(id);
   if (doneAt !== undefined) db.prepare("UPDATE shopping_items SET done_at = ? WHERE id = ?").run(doneAt, id);

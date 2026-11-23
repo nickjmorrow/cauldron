@@ -5,21 +5,23 @@ import { rmSync } from "node:fs";
 // Own database file, so the real one is never touched.
 const FILE = "data/test-shopping.db";
 process.env.CAULDRON_DB = FILE;
-const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, setPhoto, finishLookup, markLookingUp, getPhoto, removePhoto } = await import("./shopping.ts");
-const { PHOTOS_DIR } = await import("./db.ts");
+const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, INBOX, NO_REASON, setPhoto, finishLookup, markLookingUp, getPhoto, removePhoto,
+  isShown, getHidden, setHidden, parseHidden, listReasons, shoppingList } = await import("./shopping.ts");
+const { PHOTOS_DIR, getDb } = await import("./db.ts");
+const { buyName, mealsUsing } = await import("./item-meals.ts");
 
 test.after(() => {
   for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true });
   rmSync(PHOTOS_DIR, { recursive: true, force: true });
 });
 
-const item = (name: string, aisle = "", extra: { later?: boolean; done?: boolean } = {}) =>
-  ({ id: 0, name, qty: "", aisle, later: false, done: false, note: "", photo: "", aisleFrom: "", looking: false, meals: [], ...extra });
+const item = (name: string, aisle = "", extra: { done?: boolean; looking?: boolean; meals?: string[] } = {}) =>
+  ({ id: 0, name, qty: "", aisle, later: (extra.meals ?? []).includes("Later"), done: false, note: "", photo: "", aisleFrom: "", looking: false, meals: [] as string[], ...extra });
 
-test("numbered aisles come first in walking order, then named areas, then items with no aisle; later items stay in their aisle", () => {
+test("numbered aisles come first in walking order, then named areas, then items with no aisle", () => {
   const list = groupItems([
     item("Rice", "10"), item("Apples", "Produce"), item("Soy sauce", "4"), item("Mystery"), item("Bread", "2"),
-    item("Sponges", "7", { later: true }), item("Noodles", "4"),
+    item("Sponges", "7", { meals: ["Later"] }), item("Noodles", "4"),
   ]);
   assert.deepEqual(list.groups.map((g) => [g.title, g.items.map((i) => i.name)]), [
     ["Aisle 2", ["Bread"]], ["Aisle 4", ["Noodles", "Soy sauce"]], ["Aisle 7", ["Sponges"]], ["Aisle 10", ["Rice"]],
@@ -60,7 +62,7 @@ test("items are added, checked off, un-checked and removed", () => {
   const celery = addItem({ name: "Celery", qty: "1 bunch", aisle: "Produce" });
   assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "", photo: "", aisleFrom: "you", looking: false, meals: [] });
   assert.equal(updateItem(celery.id, { done: true })!.done, true);
-  assert.equal(updateItem(celery.id, { done: false, later: true })!.later, true);
+  assert.equal(updateItem(celery.id, { done: false })!.done, false);
   assert.equal(listItems().find((i) => i.id === celery.id)!.done, false);
   assert.equal(removeItem(celery.id), true);
   assert.equal(removeItem(celery.id), false);
@@ -153,4 +155,90 @@ test("an item can say which meals it's for", () => {
   const item = addItem({ name: "Sage", meals: ["Stuffing"] });
   assert.deepEqual(item.meals, ["Stuffing"]);
   assert.deepEqual(updateItem(item.id, { meals: ["Stuffing", "Roast chicken"] })!.meals, ["Stuffing", "Roast chicken"]);
+});
+
+test("items whose aisle is being looked up wait in the Inbox, first, and leave it when the lookup ends", () => {
+  const list = groupItems([item("Rice", "3"), item("Farro", "", { looking: true }), item("Capers", "Produce", { looking: true })]);
+  assert.deepEqual(list.groups.map((g) => [g.title, g.items.map((i) => i.name)]), [[INBOX, ["Capers", "Farro"]], ["Aisle 3", ["Rice"]]]);
+  assert.deepEqual(groupItems([item("Rice", "3"), item("Farro")]).groups.map((g) => g.title), ["Aisle 3", NO_AISLE]);
+});
+
+test("an item shows when any of its reasons is on, unless it is Later and Later is off; one with no reason follows the no-reason switch", () => {
+  assert.equal(isShown(item("Sponges", "7", { meals: ["Later"] }), ["later"]), false);
+  assert.equal(isShown(item("Sage", "", { meals: ["Later", "Stuffing"] }), ["Later"]), false); // Later hides it whatever else it's for
+  assert.equal(isShown(item("Sage", "", { meals: ["Later", "Stuffing"] }), ["Stuffing"]), true);
+  assert.equal(isShown(item("Sage", "", { meals: ["Chili", "Stuffing"] }), ["Stuffing"]), true);
+  assert.equal(isShown(item("Sage", "", { meals: ["Chili", "Stuffing"] }), ["Stuffing", "chili"]), false);
+  assert.equal(isShown(item("Eggs"), ["Later"]), true);
+  assert.equal(isShown(item("Eggs"), [NO_REASON]), false);
+  assert.equal(isShown(item("Sage", "", { meals: ["Stuffing"] }), [NO_REASON]), true);
+});
+
+test("hidden reasons are stored and checked; the list carries them with the reasons to pick from", () => {
+  assert.deepEqual(parseHidden({ hidden: [" Later ", "Later", ""] }), ["Later", ""]);
+  assert.match((parseHidden({ hidden: "Later" }) as { error: string }).error, /hidden/);
+  assert.match((parseHidden(null) as { error: string }).error, /hidden/);
+  setHidden(["Later", ""]);
+  assert.deepEqual(getHidden(), ["", "Later"]);
+  setHidden([]);
+  assert.deepEqual(shoppingList().hidden, []);
+});
+
+test("reasons on the list come first A to Z, then ones used before; a new reason is offered as soon as an item has it", () => {
+  const old = addItem({ name: "Candles", meals: ["Birthday"] });
+  updateItem(old.id, { done: true });
+  clearDone();
+  addItem({ name: "Soap", meals: ["House"] });
+  const reasons = listReasons();
+  assert.ok(reasons.includes("House") && reasons.includes("Stuffing"));
+  assert.ok(reasons.indexOf("House") < reasons.indexOf("Birthday"));
+  assert.equal(reasons.filter((r) => r.toLowerCase() === "stuffing").length, 1);
+});
+
+test("an item added with no reason is for the meals that use it: typical-day meals first, then occasional ones, and no others", () => {
+  const db = getDb();
+  const id = (sql: string, ...args: (string | number)[]) => Number(db.prepare(sql).run(...args).lastInsertRowid);
+  const leek = id("INSERT INTO ingredients (name, serving, status) VALUES ('Leeks, raw', '100 g', 'approved')");
+  const meal = (name: string, occasional = 0) => {
+    const m = id("INSERT INTO meals (name, status, occasional) VALUES (?, 'approved', ?)", name, occasional);
+    db.prepare("INSERT INTO meal_items (meal_id, ingredient_id, qty) VALUES (?, ?, 1)").run(m, leek);
+    return m;
+  };
+  meal("Braise", 1);
+  const soup = meal("Leek soup");
+  meal("Abandoned tart");
+  const day = id("INSERT INTO days (name, position) VALUES ('Standard day', 1)");
+  const slot = id("INSERT INTO day_slots (day_id, name, position) VALUES (?, 'Lunch', 1)", day);
+  db.prepare("INSERT INTO slot_options (slot_id, meal_id, is_planned) VALUES (?, ?, 1)").run(slot, soup);
+
+  assert.equal(buyName("Celery, Raw"), "celery");
+  assert.equal(buyName("Eggs (large)"), "egg");
+  assert.deepEqual(mealsUsing("leek"), ["Leek soup", "Braise"]);
+  assert.deepEqual(mealsUsing("Leek soup mix"), []);
+  assert.deepEqual(addItem({ name: "Leeks" }).meals, ["Leek soup", "Braise"]);
+  assert.deepEqual(addItem({ name: "Leeks", meals: ["Party"] }).meals, ["Party"]); // a given reason wins
+  assert.deepEqual(addItem({ name: "Batteries" }).meals, []);
+});
+
+test("items set for later before reasons existed get the reason Later, which starts hidden", async () => {
+  const { migrateLater } = await import("./db.ts");
+  const db = getDb();
+  db.prepare("INSERT INTO shopping_items (name, later, meals) VALUES ('Old sponge', 1, '[\"House\"]')").run();
+  migrateLater(db);
+  assert.deepEqual(listItems().find((i) => i.name === "Old sponge")!.meals, ["House", "Later"]);
+  assert.deepEqual(getHidden(), ["Later"]);
+  setHidden([]);
+  migrateLater(db); // nothing left to move: the choice to show Later again stays
+  assert.deepEqual(getHidden(), []);
+});
+
+test("later is the reason Later: the flag gives or takes it and leaves other reasons alone", () => {
+  const foil = addItem({ name: "Foil", later: true });
+  assert.deepEqual([foil.later, foil.meals], [true, ["Later"]]);
+  const now = updateItem(foil.id, { later: false })!;
+  assert.deepEqual([now.later, now.meals], [false, []]);
+  const tagged = updateItem(foil.id, { meals: ["House", "later"] })!;
+  assert.equal(tagged.later, true);
+  assert.deepEqual(updateItem(foil.id, { later: false })!.meals, ["House"]);
+  assert.deepEqual(updateItem(foil.id, { later: true })!.meals, ["House", "Later"]);
 });
