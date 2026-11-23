@@ -105,19 +105,20 @@ struct ListScreen: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
-            // The clock sits beside the checkbox it belongs to. It stays (dimmed) while a check-off waits, so the row doesn't shift.
+            // One tap opens what the item is for. It stays (dimmed) while a check-off waits, so the row doesn't shift.
             if !stored.done {
-                Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
-                    Image(systemName: item.later ? "clock.fill" : "clock")
+                Button { reasonsFor = stored } label: {
+                    Image(systemName: item.reasons.isEmpty ? "tag" : "tag.fill")
                         .font(.title3)
-                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
+                        .foregroundStyle(item.reasons.isEmpty ? Theme.muted : Theme.sun)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .disabled(item.done)
                 .opacity(item.done ? 0.35 : 1)
-                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
+                .accessibilityLabel("What \(item.name) is for")
+                .accessibilityValue(item.reasons.joined(separator: ", "))
             }
             nameButton(item, stored: stored).padding(.leading, stored.done ? 14 : 0)
             if let url = store.photoURL(item) {
@@ -130,7 +131,6 @@ struct ListScreen: View {
         .listRowBackground(Theme.surface)
         .listRowSeparatorTint(Theme.line)
         .contextMenu {
-            Button { reasonsFor = stored } label: { Label("What it's for", systemImage: "tag") }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button { photoFor = item; takingPhoto = true } label: { Label("Take photo", systemImage: "camera") }
             }
@@ -142,9 +142,7 @@ struct ListScreen: View {
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) { ShoppingUndo.delete(stored, store: store, undo: undoManager) } label: { Label("Delete", systemImage: "trash") }
-            Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
-                Label(item.later ? "Now" : "Later", systemImage: item.later ? "arrow.uturn.up" : "clock")
-            }
+            Button { reasonsFor = stored } label: { Label("For", systemImage: "tag") }
             .tint(Theme.raised)
         }
     }
@@ -156,7 +154,7 @@ struct ListScreen: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.name)
                         .font(.title3.weight(.medium))
-                        .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
+                        .foregroundStyle(item.done ? Theme.muted : Theme.fg)
                         .strikethrough(item.done, color: Theme.muted)
                     let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
                     if !detail.isEmpty || item.meals?.isEmpty == false {

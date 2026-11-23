@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// The reason the clock on a row gives or takes.
-let laterReason = "Later"
 /// Stands for items with no reason, in the list of hidden reasons.
 let noReason = ""
 
@@ -19,11 +17,10 @@ extension Item {
     func has(_ reason: String) -> Bool { reasons.contains { $0.caseInsensitiveCompare(reason) == .orderedSame } }
 
     /// On this trip when one of its reasons is switched on; with no reason it follows the "No reason" chip.
-    /// Later is the exception: while it's off, an item marked Later is hidden whatever else it's for. (lib/shopping.ts isShown)
+    /// (lib/shopping.ts isShown)
     func isShown(hidden: [String]) -> Bool {
         let off = Set(hidden.map { $0.lowercased() })
         if reasons.isEmpty { return !off.contains(noReason) }
-        if has(laterReason) && off.contains(laterReason.lowercased()) { return false }
         return reasons.contains { !off.contains($0.lowercased()) }
     }
 }

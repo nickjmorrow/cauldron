@@ -11,9 +11,8 @@ import { getAisleContents } from "./store-map.ts";
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
 // aisleFrom: where the aisle came from ('you', 'remembered', 'store' when looked up, 'guess' from the name, or '').
 // looking: the store's aisle is being looked up right now. meals: what it's bought for (meals, recipes or any other reason).
-// later: it has the reason "Later" (the clock on a row is a one-tap way to give or take that reason).
 export type ShoppingItem = {
-  id: number; name: string; qty: string; aisle: string; later: boolean; done: boolean; note: string; photo: string;
+  id: number; name: string; qty: string; aisle: string; done: boolean; note: string; photo: string;
   aisleFrom: string; looking: boolean; meals: string[];
 };
 // holds: what the aisle holds, when known ("" otherwise).
@@ -26,11 +25,10 @@ export type ItemChange = Partial<Omit<ShoppingItem, "id" | "photo" | "aisleFrom"
 export const NO_AISLE = "No aisle yet";
 export const INBOX = "Inbox";
 export const NO_REASON = "";
-export const LATER = "Later";
 const MAX_REASONS = 40;
 const MAX_MEALS = 10;
 const TEXT_FIELDS = ["name", "qty", "aisle", "note"] as const;
-const FLAG_FIELDS = ["later", "done"] as const;
+const FLAG_FIELDS = ["done"] as const;
 const MAX_TEXT = 200;
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 // Read from the file's first bytes, not from what the sender claims.
@@ -45,17 +43,10 @@ type Row = {
   id: number; name: string; qty: string; aisle: string; note: string; done_at: string | null; photo_type: string; photo_at: string;
   aisle_from: string; lookup: number; meals: string;
 };
-const isLater = (reason: string) => reason.toLowerCase() === LATER.toLowerCase();
-const toItem = (r: Row): ShoppingItem => {
-  const meals = JSON.parse(r.meals) as string[];
-  return {
-    id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, later: meals.some(isLater), done: r.done_at !== null, note: r.note,
-    photo: r.photo_type ? r.photo_at : "", aisleFrom: r.aisle_from, looking: r.lookup === 1, meals,
-  };
-};
-// The reasons after a change: "later" gives or takes the reason Later, and wins over the list sent with it.
-const withLater = (meals: string[], later: boolean | undefined) =>
-  later === undefined ? meals : later ? (meals.some(isLater) ? meals : [...meals, LATER]) : meals.filter((m) => !isLater(m));
+const toItem = (r: Row): ShoppingItem => ({
+  id: r.id, name: r.name, qty: r.qty, aisle: r.aisle, done: r.done_at !== null, note: r.note,
+  photo: r.photo_type ? r.photo_at : "", aisleFrom: r.aisle_from, looking: r.lookup === 1, meals: JSON.parse(r.meals) as string[],
+});
 const COLUMNS = "id, name, qty, aisle, note, done_at, photo_type, photo_at, aisle_from, lookup, meals";
 
 // "4" reads as "Aisle 4"; a named area such as "Produce" is shown as written.
@@ -92,11 +83,9 @@ export function groupItems(items: ShoppingItem[], contents: Record<string, strin
 }
 
 // An item is on this trip when one of its reasons is switched on; an item with no reason follows NO_REASON.
-// Later is the exception: while it's off, an item marked Later is hidden whatever else it's for.
 export function isShown(item: ShoppingItem, hidden: string[]): boolean {
   const off = new Set(hidden.map((h) => h.toLowerCase()));
   if (item.meals.length === 0) return !off.has(NO_REASON);
-  if (item.later && off.has(LATER.toLowerCase())) return false;
   return item.meals.some((m) => !off.has(m.toLowerCase()));
 }
 
@@ -169,7 +158,7 @@ export function parseChange(input: unknown, { needsName }: { needsName: boolean 
     change.meals = names;
   }
   if (change.name === "" || (needsName && change.name === undefined)) return { error: "An item needs a name." };
-  if (Object.keys(change).length === 0) return { error: "Nothing to change. Send name, qty, aisle, note, meals, later or done." };
+  if (Object.keys(change).length === 0) return { error: "Nothing to change. Send name, qty, aisle, note, meals or done." };
   return change;
 }
 
@@ -204,7 +193,7 @@ export function addItem(change: ItemChange & { name: string }, { lookUp = false 
   const remembered = change.aisle ? "" : rememberedAisle(change.name);
   const [aisle, from] = change.aisle ? [change.aisle, "you"] : remembered ? [remembered, "remembered"] : [guessSection(change.name), "guess"];
   const photo = rememberedPhoto(change.name);
-  const meals = withLater(change.meals?.length ? change.meals : mealsUsing(change.name), change.later);
+  const meals = change.meals?.length ? change.meals : mealsUsing(change.name);
   const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, note, done_at, aisle_from, lookup, meals) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     .run(change.name, change.qty ?? "", aisle, change.note ?? "", change.done ? new Date().toISOString() : null,
       from, lookUp && from === "guess" ? 1 : 0, JSON.stringify(meals));
@@ -224,7 +213,7 @@ export function updateItem(id: number, change: ItemChange): ShoppingItem | undef
   const doneAt = after.done ? (before.done ? undefined : new Date().toISOString()) : null;
   const db = getDb();
   db.prepare("UPDATE shopping_items SET name = ?, qty = ?, aisle = ?, note = ?, meals = ? WHERE id = ?")
-    .run(after.name, after.qty, after.aisle, after.note, JSON.stringify(withLater(after.meals, change.later)), id);
+    .run(after.name, after.qty, after.aisle, after.note, JSON.stringify(after.meals), id);
   // An aisle set by hand wins over any lookup still running.
   if (change.aisle !== undefined && change.aisle !== before.aisle) db.prepare("UPDATE shopping_items SET aisle_from = 'you', lookup = 0 WHERE id = ?").run(id);
   if (doneAt !== undefined) db.prepare("UPDATE shopping_items SET done_at = ? WHERE id = ?").run(doneAt, id);

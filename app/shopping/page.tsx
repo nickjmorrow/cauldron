@@ -1,30 +1,11 @@
-import Link from "next/link";
 import { getDb } from "../../lib/db.ts";
 import { getStoreMap } from "../../lib/store-map.ts";
 import { isShown, NO_REASON, shoppingList, type ShoppingItem } from "../../lib/shopping.ts";
 import { PhotoForm } from "./photo-form.tsx";
 import { RefreshWhile } from "./refresh-while.tsx";
+import { ReasonEditor } from "./reason-editor.tsx";
 import { ShopRow } from "./shop-row.tsx";
-import { addShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle, setShoppingMeals, toggleShoppingReason } from "../actions.ts";
-
-type MealLinks = Map<string, number>; // lower-cased meal name -> meal id, for linking "for" names to Cauldron meals
-
-function MealTags({ meals, links }: { meals: string[]; links: MealLinks }) {
-  if (meals.length === 0) return null;
-  return (
-    <span className="shop-meals" aria-label={`For ${meals.join(", ")}`}>
-      {meals.map((m, i) => {
-        const id = links.get(m.toLowerCase());
-        return (
-          <span key={m}>
-            {i > 0 && ", "}
-            {id ? <Link href={`/meals/${id}`}>{m}</Link> : <span className="shop-meal">{m}</span>}
-          </span>
-        );
-      })}
-    </span>
-  );
-}
+import { addShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle, toggleShoppingReason } from "../actions.ts";
 
 // What an item is for: the known reasons as checkboxes, and a field for a new one (several, with commas).
 function ReasonPicker({ reasons, picked }: { reasons: string[]; picked: string[] }) {
@@ -42,10 +23,10 @@ function ReasonPicker({ reasons, picked }: { reasons: string[]; picked: string[]
   );
 }
 
-function Item({ item, links, reasons }: { item: ShoppingItem; links: MealLinks; reasons: string[] }) {
+function Item({ item, reasons }: { item: ShoppingItem; reasons: string[] }) {
   return (
     // Keyed by what's saved, so a row that waited on a tap starts fresh once the change is in.
-    <ShopRow key={`${item.done}-${item.later}`} id={item.id} name={item.name} done={item.done} later={item.later}>
+    <ShopRow key={String(item.done)} id={item.id} name={item.name} done={item.done}>
       {item.photo && (
         <a href={`/api/shopping/${item.id}/photo?v=${encodeURIComponent(item.photo)}`} className="shop-thumb" aria-label={`Photo of ${item.name}`}>
           <img src={`/api/shopping/${item.id}/photo?v=${encodeURIComponent(item.photo)}`} alt="" loading="lazy" />
@@ -55,12 +36,12 @@ function Item({ item, links, reasons }: { item: ShoppingItem; links: MealLinks; 
         <span className="shop-name">{item.name}</span>
         {(item.qty || item.note) && <span className="muted shop-detail">{[item.qty, item.note].filter(Boolean).join(" · ")}</span>}
       </div>
-      {(item.looking || item.meals.length > 0) && (
-        <span className="shop-extra">
-          {item.looking && <span className="shop-looking" role="status"><span className="spinner" aria-hidden="true" /> Finding its aisle…</span>}
-          <MealTags meals={item.meals} links={links} />
-        </span>
-      )}
+      <span className="shop-extra">
+        {item.looking && <span className="shop-looking" role="status"><span className="spinner" aria-hidden="true" /> Finding its aisle…</span>}
+        {item.done
+          ? item.meals.length > 0 && <span className="shop-meals">{item.meals.join(", ")}</span>
+          : <ReasonEditor id={item.id} name={item.name} picked={item.meals} reasons={reasons} />}
+      </span>
       {!item.done && (
         <details className="shop-edit">
           <summary aria-label={`Change ${item.name}`}>Change</summary>
@@ -68,10 +49,6 @@ function Item({ item, links, reasons }: { item: ShoppingItem; links: MealLinks; 
             <form action={setShoppingAisle.bind(null, item.id)} className="row">
               <input name="aisle" aria-label="Aisle" placeholder="Aisle (4, Produce)" defaultValue={item.aisle} size={14} />
               <button>Save aisle</button>
-            </form>
-            <form action={setShoppingMeals.bind(null, item.id)} className="row">
-              <ReasonPicker reasons={reasons} picked={item.meals} />
-              <button>Save reasons</button>
             </form>
             <PhotoForm id={item.id} hasPhoto={item.photo !== ""} />
             <form action={removeShoppingItem.bind(null, item.id)}><button className="link danger">Remove</button></form>
@@ -85,7 +62,6 @@ function Item({ item, links, reasons }: { item: ShoppingItem; links: MealLinks; 
 export default async function Shopping() {
   const { groups, done, reasons, hidden } = shoppingList();
   const meals = getDb().prepare("SELECT id, name FROM meals ORDER BY name").all() as { id: number; name: string }[];
-  const links: MealLinks = new Map(meals.map((m) => [m.name.toLowerCase(), m.id]));
 
   const open = groups.flatMap((g) => g.items);
   // One chip per reason on the list (and any that's switched off), then one for items with no reason.
@@ -101,7 +77,7 @@ export default async function Shopping() {
     <>
       <RefreshWhile active={looking} />
       <h1>Shopping</h1>
-      <p className="lede">Everything grouped by aisle. Each item can say what it's for; switch a reason off to leave its items out of this trip. The clock is a quick way to mark an item Later.</p>
+      <p className="lede">Everything grouped by aisle. Each item can say what it's for; switch a reason off to leave its items out of this trip. Tap an item's reasons to change them.</p>
 
       <div className="shop-bar">
         <form action={addShoppingItem} className="shop-add">
@@ -132,7 +108,7 @@ export default async function Shopping() {
       {shown.map((g) => (
         <section key={g.title} className="shop-group">
           <h2>{g.title} <span className="muted">({g.items.length})</span>{g.holds && <span className="shop-holds">{g.holds}</span>}</h2>
-          <ul className="shop-list">{g.items.map((i) => <Item key={i.id} item={i} links={links} reasons={reasons} />)}</ul>
+          <ul className="shop-list">{g.items.map((i) => <Item key={i.id} item={i} reasons={reasons} />)}</ul>
         </section>
       ))}
       {done.length > 0 && (
@@ -141,7 +117,7 @@ export default async function Shopping() {
             <h2>Done <span className="muted">({done.length})</span></h2>
             <form action={clearShoppingDone}><button>Clear done</button></form>
           </div>
-          <ul className="shop-list">{done.map((i) => <Item key={i.id} item={i} links={links} reasons={reasons} />)}</ul>
+          <ul className="shop-list">{done.map((i) => <Item key={i.id} item={i} reasons={reasons} />)}</ul>
         </section>
       )}
 

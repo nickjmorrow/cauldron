@@ -43,17 +43,12 @@ struct MacShoppingView: View {
         }
         .task { await store.sync() }
         .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleLater)) { _ in withAnimation { store.toggleHidden(laterReason) } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await store.sync() }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in grace.applyAll() }
         .toolbar {
             Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-        }
-        .sheet(item: $reasonsFor) { item in
-            ReasonPicker(title: "\(item.name) is for", known: store.list.knownReasons, picked: item.reasons) { store.setReasons(item.id, $0) }
-                .frame(width: 340, height: 420)
         }
         .sheet(item: $viewing) { item in
             VStack {
@@ -66,7 +61,7 @@ struct MacShoppingView: View {
     }
 
     /// Pinned above the list, so it's in reach however far down you are: adding an item, and the reasons shown this
-    /// trip (⌘L switches Later).
+    /// trip.
     private var topBar: some View {
         let open = groups.reduce(0) { $0 + $1.items.count }
         return VStack(alignment: .leading, spacing: 6) {
@@ -116,11 +111,11 @@ struct MacShoppingView: View {
             Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: { CheckMark(done: item.done, size: 20) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
-            // The clock sits beside the checkbox it belongs to. It stays (dimmed) while a check-off waits, so the row doesn't shift.
+            // One click opens what the item is for. It stays (dimmed) while a check-off waits, so the row doesn't shift.
             if !stored.done {
-                Button { grace.toggleLater(stored, in: store, undo: undoManager) } label: {
-                    Image(systemName: item.later ? "clock.fill" : "clock")
-                        .foregroundStyle(item.later ? Theme.sun : Theme.muted)
+                Button { reasonsFor = stored } label: {
+                    Image(systemName: item.reasons.isEmpty ? "tag" : "tag.fill")
+                        .foregroundStyle(item.reasons.isEmpty ? Theme.muted : Theme.sun)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())
                 }
@@ -128,12 +123,16 @@ struct MacShoppingView: View {
                 .disabled(item.done)
                 .opacity(item.done ? 0.35 : 1)
                 .padding(.horizontal, -6)
-                .help(item.later ? "Later: click to get it this trip" : "Click to leave it for later")
-                .accessibilityLabel(item.later ? "Get \(item.name) this trip" : "Leave \(item.name) for later")
+                .help("What it's for: click to change")
+                .accessibilityLabel("What \(item.name) is for")
+                .popover(isPresented: Binding(get: { reasonsFor?.id == stored.id }, set: { if !$0 { reasonsFor = nil } }), arrowEdge: .trailing) {
+                    ReasonPicker(title: "\(stored.name) is for", known: store.list.knownReasons, picked: stored.reasons) { store.setReasons(stored.id, $0) }
+                        .frame(width: 300, height: 380)
+                }
             }
             // One line across the row: name, amount and note, then (on the right) lookup, meal tag and photo.
             Text(item.name)
-                .foregroundStyle(item.done || item.later ? Theme.muted : Theme.fg)
+                .foregroundStyle(item.done ? Theme.muted : Theme.fg)
                 .strikethrough(item.done, color: Theme.muted)
                 .lineLimit(1)
                 .layoutPriority(2)
@@ -143,7 +142,9 @@ struct MacShoppingView: View {
             }
             Spacer(minLength: 12)
             if item.isLooking { LookingNote() }
-            if let meals = item.meals, !meals.isEmpty { MealTag(meals: meals) }
+            if let meals = item.meals, !meals.isEmpty {
+                Button { reasonsFor = stored } label: { MealTag(meals: meals) }.buttonStyle(.plain).disabled(stored.done)
+            }
             if let url = store.photoURL(item) {
                 Button { viewing = item } label: {
                     AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { Theme.raised }
@@ -157,7 +158,6 @@ struct MacShoppingView: View {
         .padding(.vertical, 5)
         .contextMenu {
             Button("What it's for…") { reasonsFor = stored }
-            Button(item.later ? "Move to this trip" : "Move to later") { grace.toggleLater(stored, in: store, undo: undoManager) }
             Button("Choose photo…") { choosePhoto(for: item) }
             Button("Find product photo") { Task { await store.findPhoto(item.id) } }
             if item.photo?.isEmpty == false {

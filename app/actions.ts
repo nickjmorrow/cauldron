@@ -366,13 +366,6 @@ export async function setShoppingAisle(id: number, f: FormData) {
 const pickedReasons = (f: FormData) =>
   [...f.getAll("meals").map(String), ...str(f, "newMeals").split(",")].map((m) => m.trim()).filter(Boolean);
 
-export async function setShoppingMeals(id: number, f: FormData) {
-  const change = parseChange({ meals: pickedReasons(f) }, { needsName: false });
-  if ("error" in change) return;
-  updateItem(id, change);
-  refresh();
-}
-
 export async function removeShoppingItem(id: number) {
   removeItem(id);
   refresh();

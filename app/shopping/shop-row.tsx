@@ -2,11 +2,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { changeShoppingItem } from "../actions.ts";
 
-// A tap on the checkbox or clock shows at once but is only saved after this wait, so a slip can be tapped back
+// A tap on the checkbox shows at once but is only saved after this wait, so a slip can be tapped back
 // before the row moves.
 const GRACE_MS = 2000;
 
-type Mark = { kind: "done" | "later"; value: boolean };
 
 const Check = () => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
@@ -14,61 +13,42 @@ const Check = () => (
   </svg>
 );
 
-// A clock: "later". Filled when the item is set for later.
-const Clock = ({ on }: { on: boolean }) => (
-  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-    <circle cx="8" cy="8" r="6" fill={on ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" />
-    <path d="M8 4.8V8l2.2 1.6" fill="none" stroke={on ? "var(--sun-ink)" : "currentColor"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-/** One shopping row: the checkbox and the clock beside it, then the rest of the row (rendered on the server). */
-export function ShopRow({ id, name, done, later, children }: { id: number; name: string; done: boolean; later: boolean; children: ReactNode }) {
-  const [mark, setMark] = useState<Mark | null>(null); // the tapped change, shown until the saved row replaces this one
-  const waiting = useRef<{ mark: Mark; timer: number } | null>(null);
+/** One shopping row: the checkbox, then the rest of the row (rendered on the server). */
+export function ShopRow({ id, name, done, children }: { id: number; name: string; done: boolean; children: ReactNode }) {
+  const [mark, setMark] = useState<boolean | null>(null); // the tapped change, shown until the saved row replaces this one
+  const waiting = useRef<{ done: boolean; timer: number } | null>(null);
 
   const save = () => {
     const w = waiting.current;
     if (!w) return;
     clearTimeout(w.timer);
     waiting.current = null;
-    void changeShoppingItem(id, { [w.mark.kind]: w.mark.value });
+    void changeShoppingItem(id, { done: w.done });
   };
   // Leaving the page saves a waiting change at once.
   const saveRef = useRef(save);
   saveRef.current = save;
   useEffect(() => () => saveRef.current(), []);
 
-  const shownDone = mark?.kind === "done" ? mark.value : done;
-  const shownLater = mark?.kind === "later" ? mark.value : later;
+  const shownDone = mark ?? done;
 
-  const toggle = (kind: Mark["kind"]) => {
+  const toggle = () => {
     const w = waiting.current;
-    if (w?.mark.kind === kind) {
-      // A second tap on the same control takes the waiting change back.
+    if (w) {
+      // A second tap takes the waiting change back.
       clearTimeout(w.timer);
       waiting.current = null;
       setMark(null);
       return;
     }
-    save(); // a change to the other control was waiting: it goes through first
-    const next = { kind, value: !(kind === "done" ? shownDone : shownLater) };
-    waiting.current = { mark: next, timer: window.setTimeout(save, GRACE_MS) };
-    setMark(next);
+    waiting.current = { done: !shownDone, timer: window.setTimeout(save, GRACE_MS) };
+    setMark(!shownDone);
   };
 
-  const classes = ["shop-item", shownDone && "is-done", shownLater && !shownDone && "is-later"].filter(Boolean).join(" ");
   return (
-    <li className={classes}>
-      <button type="button" className="shop-check" onClick={() => toggle("done")}
+    <li className={shownDone ? "shop-item is-done" : "shop-item"}>
+      <button type="button" className="shop-check" onClick={toggle}
         aria-label={shownDone ? `Put ${name} back on the list` : `Check off ${name}`}>{shownDone && <Check />}</button>
-      {!done && (
-        <button type="button" className="shop-later" onClick={() => toggle("later")} disabled={shownDone} aria-pressed={shownLater}
-          title={shownLater ? "Later: tap to get it this trip" : "This trip: tap to leave it for later"}
-          aria-label={shownLater ? `Get ${name} this trip` : `Leave ${name} for later`}>
-          <Clock on={shownLater} />
-        </button>
-      )}
       {children}
     </li>
   );

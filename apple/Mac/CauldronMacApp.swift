@@ -15,8 +15,6 @@ struct CauldronMacApp: App {
             CommandGroup(after: .toolbar) {
                 Button("Reload") { NotificationCenter.default.post(name: .reload, object: nil) }
                     .keyboardShortcut("r")
-                Button("Show or Hide Later Items") { NotificationCenter.default.post(name: .toggleLater, object: nil) }
-                    .keyboardShortcut("l")
             }
         }
         Settings {
@@ -28,7 +26,6 @@ struct CauldronMacApp: App {
 
 extension Notification.Name {
     static let reload = Notification.Name("CauldronReload")
-    static let toggleLater = Notification.Name("CauldronToggleLater")
 }
 
 /// The sidebar's places: the native shopping list, and the planner pages, which are the server's web pages until they get native screens.

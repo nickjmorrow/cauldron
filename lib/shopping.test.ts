@@ -16,7 +16,7 @@ test.after(() => {
 });
 
 const item = (name: string, aisle = "", extra: { done?: boolean; looking?: boolean; meals?: string[] } = {}) =>
-  ({ id: 0, name, qty: "", aisle, later: (extra.meals ?? []).includes("Later"), done: false, note: "", photo: "", aisleFrom: "", looking: false, meals: [] as string[], ...extra });
+  ({ id: 0, name, qty: "", aisle, done: false, note: "", photo: "", aisleFrom: "", looking: false, meals: [] as string[], ...extra });
 
 test("numbered aisles come first in walking order, then named areas, then items with no aisle", () => {
   const list = groupItems([
@@ -42,7 +42,7 @@ test("an aisle number reads as 'Aisle n' and a named area as written", () => {
 });
 
 test("a change is cleaned up: text trimmed, 'Aisle 4' stored as '4'", () => {
-  assert.deepEqual(parseChange({ name: "  Celery ", aisle: "Aisle 4", later: true }, { needsName: true }), { name: "Celery", aisle: "4", later: true });
+  assert.deepEqual(parseChange({ name: "  Celery ", aisle: "Aisle 4", done: true }, { needsName: true }), { name: "Celery", aisle: "4", done: true });
   assert.deepEqual(parseChange({ aisle: "04" }, { needsName: false }), { aisle: "4" });
 });
 
@@ -60,7 +60,7 @@ test("a bad change says what was wrong", () => {
 
 test("items are added, checked off, un-checked and removed", () => {
   const celery = addItem({ name: "Celery", qty: "1 bunch", aisle: "Produce" });
-  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", later: false, done: false, note: "", photo: "", aisleFrom: "you", looking: false, meals: [] });
+  assert.deepEqual(celery, { id: celery.id, name: "Celery", qty: "1 bunch", aisle: "Produce", done: false, note: "", photo: "", aisleFrom: "you", looking: false, meals: [] });
   assert.equal(updateItem(celery.id, { done: true })!.done, true);
   assert.equal(updateItem(celery.id, { done: false })!.done, false);
   assert.equal(listItems().find((i) => i.id === celery.id)!.done, false);
@@ -163,9 +163,9 @@ test("items whose aisle is being looked up wait in the Inbox, first, and leave i
   assert.deepEqual(groupItems([item("Rice", "3"), item("Farro")]).groups.map((g) => g.title), ["Aisle 3", NO_AISLE]);
 });
 
-test("an item shows when any of its reasons is on, unless it is Later and Later is off; one with no reason follows the no-reason switch", () => {
+test("an item shows when any of its reasons is on; one with no reason follows the no-reason switch", () => {
   assert.equal(isShown(item("Sponges", "7", { meals: ["Later"] }), ["later"]), false);
-  assert.equal(isShown(item("Sage", "", { meals: ["Later", "Stuffing"] }), ["Later"]), false); // Later hides it whatever else it's for
+  assert.equal(isShown(item("Sage", "", { meals: ["Later", "Stuffing"] }), ["Later"]), true);
   assert.equal(isShown(item("Sage", "", { meals: ["Later", "Stuffing"] }), ["Stuffing"]), true);
   assert.equal(isShown(item("Sage", "", { meals: ["Chili", "Stuffing"] }), ["Stuffing"]), true);
   assert.equal(isShown(item("Sage", "", { meals: ["Chili", "Stuffing"] }), ["Stuffing", "chili"]), false);
@@ -232,13 +232,3 @@ test("items set for later before reasons existed get the reason Later, which sta
   assert.deepEqual(getHidden(), []);
 });
 
-test("later is the reason Later: the flag gives or takes it and leaves other reasons alone", () => {
-  const foil = addItem({ name: "Foil", later: true });
-  assert.deepEqual([foil.later, foil.meals], [true, ["Later"]]);
-  const now = updateItem(foil.id, { later: false })!;
-  assert.deepEqual([now.later, now.meals], [false, []]);
-  const tagged = updateItem(foil.id, { meals: ["House", "later"] })!;
-  assert.equal(tagged.later, true);
-  assert.deepEqual(updateItem(foil.id, { later: false })!.meals, ["House"]);
-  assert.deepEqual(updateItem(foil.id, { later: true })!.meals, ["House", "Later"]);
-});

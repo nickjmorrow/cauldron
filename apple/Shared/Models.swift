@@ -9,14 +9,13 @@ struct Item: Codable, Identifiable, Hashable {
     var name: String
     var qty: String = ""
     var aisle: String = ""
-    var later: Bool = false
     var done: Bool = false
     var note: String = ""
     /// When the item's photo was set, or "" when it has none. Optional so lists saved before photos existed still load.
     var photo: String? = nil
     /// The server is looking up which aisle it's in at the store. Optional (like meals) so older saved lists still load.
     var looking: Bool? = nil
-    /// What it's bought for: meals, recipes or any other reason. `later` says whether "Later" is one of them.
+    /// What it's bought for: meals, recipes or any other reason.
     var meals: [String]? = nil
 
     var isLooking: Bool { looking ?? false }

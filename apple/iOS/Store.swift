@@ -90,17 +90,8 @@ final class Store {
         submit(.patch(id, ["done": done]))
     }
 
-    /// Later is a reason like any other; the clock gives or takes it.
-    func setLater(_ id: Int, _ later: Bool) {
-        list.update(id) {
-            $0.later = later
-            $0.meals = $0.reasons.filter { $0.caseInsensitiveCompare(laterReason) != .orderedSame } + (later ? [laterReason] : [])
-        }
-        submit(.patch(id, ["later": later]))
-    }
-
     func setReasons(_ id: Int, _ reasons: [String]) {
-        list.update(id) { $0.meals = reasons; $0.later = $0.has(laterReason) }
+        list.update(id) { $0.meals = reasons }
         submit(.patch(id, ["meals": reasons]))
     }
 
