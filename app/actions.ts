@@ -399,11 +399,12 @@ export async function saveRecipeForm(id: number, f: FormData) {
   const all = (key: string) => f.getAll(key).map(String);
   const texts = all("ingredientText"), buys = all("ingredientBuy"), groups = all("ingredientGroup");
   const titles = all("sectionTitle"), bodies = all("sectionBody");
+  const lines = (text: string) => text.replace(/\r\n/g, "\n"); // a browser sends text boxes with \r\n line ends
   const recipe = parseRecipe({
-    name: str(f, "name"), summary: str(f, "summary"), serves: str(f, "serves"), activeTime: str(f, "activeTime"), totalTime: str(f, "totalTime"),
+    name: str(f, "name"), summary: lines(str(f, "summary")), serves: str(f, "serves"), activeTime: str(f, "activeTime"), totalTime: str(f, "totalTime"),
     tags: str(f, "tags").split(","),
     ingredients: texts.map((text, i) => ({ text, buy: buys[i] ?? "", group: groups[i] ?? "" })).filter((i) => i.text.trim()),
-    sections: titles.map((title, i) => ({ title, body: (bodies[i] ?? "").replace(/\r\n/g, "\n") })).filter((s) => s.title.trim()),
+    sections: titles.map((title, i) => ({ title, body: lines(bodies[i] ?? "") })).filter((s) => s.title.trim()),
     meals: all("meals"),
   });
   const back = (error: string) => redirect(`/recipes/${id}?edit=1&error=${encodeURIComponent(error)}`);

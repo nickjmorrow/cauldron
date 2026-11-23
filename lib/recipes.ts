@@ -6,7 +6,9 @@ import { getDb } from "./db.ts";
 import { getOnlyDay, inUse } from "./queries.ts";
 
 // text: the line as written ("1/2 cup low-sodium soy sauce"). buy: what to put on a shopping list for it
-// ("low-sodium soy sauce"), or "" for things nobody shops for (water). group: a sub-list heading ("to finish"), or "".
+// ("low-sodium soy sauce"), or "" for things nobody shops for (water). Several names, split by ";", when a line holds
+// more than one thing or the thing goes by more than one name ("ground cumin; garlic powder").
+// group: a sub-list heading ("to finish"), or "".
 export type RecipeIngredient = { group: string; text: string; buy: string };
 // body is Markdown bullets, nested by two spaces.
 export type RecipeSection = { title: string; body: string };
@@ -67,7 +69,7 @@ export function parseRecipe(input: unknown): RecipeInput | { error: string } {
     if (!line) return { error: `ingredient ${i + 1} needs its text.` };
     const buy = isObject(row) ? text(row.buy ?? "") : undefined, group = isObject(row) ? text(row.group ?? "") : undefined;
     if (buy === undefined || group === undefined) return { error: `ingredient ${i + 1}: buy and group must be text.` };
-    if (line.length > MAX_LINE || buy.length > MAX_NAME || group.length > MAX_NAME) return { error: `ingredient ${i + 1} is too long.` };
+    if (line.length > MAX_LINE || buy.length > MAX_LINE || group.length > MAX_LINE) return { error: `ingredient ${i + 1} is too long.` };
     recipe.ingredients.push({ group, text: line, buy });
   }
   for (const [i, row] of sections.entries()) {
@@ -171,7 +173,7 @@ export function recipesUsing(itemName: string): string[] {
   if (!wanted) return [];
   const rows = getDb().prepare(`SELECT r.id, r.name, ri.buy FROM recipe_ingredients ri JOIN recipes r ON r.id = ri.recipe_id
     WHERE ri.buy != '' ORDER BY r.name COLLATE NOCASE`).all() as { id: number; name: string; buy: string }[];
-  const using = rows.filter((r) => buyName(r.buy) === wanted);
+  const using = rows.filter((r) => r.buy.split(";").some((name) => buyName(name) === wanted));
   if (using.length === 0) return [];
   const typical = typicalRecipeIds();
   return [...new Set(using.filter((r) => typical.has(r.id)).map((r) => r.name))].slice(0, MAX_FILLED);

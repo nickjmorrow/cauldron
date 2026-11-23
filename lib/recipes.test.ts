@@ -28,6 +28,7 @@ const sauce = {
   ingredients: [
     { group: "", text: "1/2 cup low-sodium soy sauce", buy: "low-sodium soy sauce" },
     { group: "", text: "2 Tbsp water", buy: "" },
+    { group: "", text: "1/2 tsp ground cumin and 1/2 tsp garlic powder", buy: "ground cumin; Garlic powder" },
     { group: "to finish", text: "1/2 tsp sesame seeds, optional", buy: "Sesame seeds" },
   ],
   sections: [{ title: "instructions", body: "- **1. Mix.** Shake it.\n  - Or stir." }, { title: "log", body: "" }],
@@ -87,6 +88,7 @@ test("an item is for the typical recipes that list it as something to buy, and n
   assert.deepEqual(recipesUsing("Sesame seeds"), ["Ginger Sauce"]);        // Cookies uses them too, but isn't typical
   assert.deepEqual(recipesUsing("Leek"), ["Leek Soup"]);                   // Roast isn't typical
   assert.deepEqual(recipesUsing("low-sodium soy sauce (the green cap)"), ["Ginger Sauce"]);
+  assert.deepEqual(recipesUsing("garlic powder"), ["Ginger Sauce"]);        // the second thing on a line that holds two
   assert.deepEqual(recipesUsing("Water"), []);                             // listed, but nothing to buy
   assert.deepEqual(recipesUsing("Soy sauce"), []);
   assert.deepEqual(recipesUsing(""), []);

@@ -62,7 +62,7 @@ function Edit({ recipe, meals, error }: { recipe: Recipe; meals: string[]; error
       </div>
 
       <h2>Ingredients</h2>
-      <p className="muted">One line each, as you'd write it. "To buy" is what goes on a shopping list for it; leave it empty for things you never shop for (water). Clear a line to remove it.</p>
+      <p className="muted">One line each, as you'd write it. "To buy" is what goes on a shopping list for it; leave it empty for things you never shop for (water), and split several names with ";". Clear a line to remove it.</p>
       <div className="table-wrap">
         <table>
           <thead><tr><th>Ingredient</th><th>To buy</th><th>Sub-list</th></tr></thead>
