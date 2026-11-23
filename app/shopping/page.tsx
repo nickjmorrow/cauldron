@@ -1,11 +1,12 @@
 import { getDb } from "../../lib/db.ts";
 import { getStoreMap } from "../../lib/store-map.ts";
-import { isShown, NO_REASON, shoppingList, type ShoppingItem } from "../../lib/shopping.ts";
+import { isShownWithFocus, NO_REASON, shoppingList, type ShoppingItem } from "../../lib/shopping.ts";
 import { PhotoForm } from "./photo-form.tsx";
 import { RefreshWhile } from "./refresh-while.tsx";
+import { ReasonChips } from "./reason-chips.tsx";
 import { ReasonEditor } from "./reason-editor.tsx";
 import { ShopRow } from "./shop-row.tsx";
-import { addShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle, toggleShoppingReason } from "../actions.ts";
+import { addShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle } from "../actions.ts";
 
 // What an item is for: the known reasons as checkboxes, and a field for a new one (several, with commas).
 function ReasonPicker({ reasons, picked }: { reasons: string[]; picked: string[] }) {
@@ -59,8 +60,10 @@ function Item({ item, reasons }: { item: ShoppingItem; reasons: string[] }) {
   );
 }
 
-export default async function Shopping() {
+export default async function Shopping({ searchParams }: { searchParams: Promise<{ focus?: string }> }) {
   const { groups, done, reasons, hidden } = shoppingList();
+  // The one reason this browser is focused on for now ("" = no reason); never saved.
+  const focus = (await searchParams).focus ?? null;
   const meals = getDb().prepare("SELECT id, name FROM meals ORDER BY name").all() as { id: number; name: string }[];
 
   const open = groups.flatMap((g) => g.items);
@@ -68,7 +71,7 @@ export default async function Shopping() {
   const onList = reasons.filter((r) => hidden.includes(r) || open.some((i) => i.meals.some((m) => m.toLowerCase() === r.toLowerCase())));
   const chips = [...onList, ...(open.some((i) => i.meals.length === 0) || hidden.includes(NO_REASON) ? [NO_REASON] : [])];
   const count = (reason: string) => open.filter((i) => (reason === NO_REASON ? i.meals.length === 0 : i.meals.some((m) => m.toLowerCase() === reason.toLowerCase()))).length;
-  const shown = groups.map((g) => ({ ...g, items: g.items.filter((i) => isShown(i, hidden)) })).filter((g) => g.items.length > 0);
+  const shown = groups.map((g) => ({ ...g, items: g.items.filter((i) => isShownWithFocus(i, hidden, focus)) })).filter((g) => g.items.length > 0);
   const hiddenCount = open.length - shown.reduce((n, g) => n + g.items.length, 0);
   const looking = groups.some((g) => g.items.some((i) => i.looking));
   const storeMap = getStoreMap();
@@ -77,7 +80,7 @@ export default async function Shopping() {
     <>
       <RefreshWhile active={looking} />
       <h1>Shopping</h1>
-      <p className="lede">Everything grouped by aisle. Each item can say what it's for; switch a reason off to leave its items out of this trip. Tap an item's reasons to change them.</p>
+      <p className="lede">Everything grouped by aisle. Each item can say what it's for; switch a reason off to leave its items out of this trip, or shift+click one to see only its items for a moment. Tap an item's reasons to change them.</p>
 
       <div className="shop-bar">
         <form action={addShoppingItem} className="shop-add">
@@ -90,20 +93,12 @@ export default async function Shopping() {
         <datalist id="shop-meal-names">{meals.map((m) => <option key={m.id} value={m.name} />)}</datalist>
 
         {chips.length > 0 && (
-          <div className="shop-reasons" role="group" aria-label="Reasons shown on this trip">
-            {chips.map((r) => (
-              <form key={r} action={toggleShoppingReason.bind(null, r)}>
-                <button className="shop-reason" aria-pressed={!hidden.includes(r)} title={hidden.includes(r) ? "Hidden: tap to show these items" : "Shown: tap to hide these items"}>
-                  {r === NO_REASON ? "No reason" : r} <span className="shop-reason-count">{count(r)}</span>
-                </button>
-              </form>
-            ))}
-          </div>
+          <ReasonChips focus={focus} chips={chips.map((r) => ({ reason: r, title: r === NO_REASON ? "No reason" : r, count: count(r), hidden: hidden.includes(r) }))} />
         )}
       </div>
 
       {shown.length === 0 && done.length === 0 && (
-        <p className="empty">{hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list yet."}</p>
+        <p className="empty">{focus !== null ? `Nothing left for ${focus === NO_REASON ? "no reason" : focus}.` : hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list yet."}</p>
       )}
       {shown.map((g) => (
         <section key={g.title} className="shop-group">

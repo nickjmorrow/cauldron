@@ -488,6 +488,9 @@ button.shop-meals:hover { border-color: var(--sun); }
 .shop-reason[aria-pressed="true"] { color: var(--sun); text-decoration: none; background: color-mix(in oklch, var(--sun) 12%, transparent);
   border-color: color-mix(in oklch, var(--sun) 35%, transparent); }
 .shop-reason:hover { border-color: var(--muted); }
+/* While one reason is focused (shift+click, this browser only): it is solid brass, the rest are dimmed, not struck through. */
+.shop-reasons.is-focusing .shop-reason { opacity: 0.5; text-decoration: none; }
+.shop-reasons.is-focusing .shop-reason.is-focus { opacity: 1; color: var(--sun-ink); background: var(--sun); border-color: var(--sun); font-weight: 600; }
 .shop-reason-count { font-size: 12px; opacity: 0.75; text-decoration: none; display: inline-block; }
 .shop-for { position: relative; }
 .shop-for summary { cursor: pointer; min-height: 40px; padding: 8px 12px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line);

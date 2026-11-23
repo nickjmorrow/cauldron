@@ -89,6 +89,14 @@ export function isShown(item: ShoppingItem, hidden: string[]): boolean {
   return item.meals.some((m) => !off.has(m.toLowerCase()));
 }
 
+// A client can focus one reason for a moment (never saved): then only that reason's items show, whatever is
+// switched off. With no focus (null) the switched-off reasons decide.
+export function isShownWithFocus(item: ShoppingItem, hidden: string[], focus: string | null): boolean {
+  if (focus === null) return isShown(item, hidden);
+  if (focus === NO_REASON) return item.meals.length === 0;
+  return item.meals.some((m) => m.toLowerCase() === focus.toLowerCase());
+}
+
 export function getHidden(): string[] {
   return (getDb().prepare("SELECT reason FROM shopping_hidden ORDER BY reason").all() as { reason: string }[]).map((r) => r.reason);
 }

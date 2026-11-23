@@ -6,7 +6,7 @@ import { rmSync } from "node:fs";
 const FILE = "data/test-shopping.db";
 process.env.CAULDRON_DB = FILE;
 const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, INBOX, NO_REASON, setPhoto, finishLookup, markLookingUp, getPhoto, removePhoto,
-  isShown, getHidden, setHidden, parseHidden, listReasons, shoppingList } = await import("./shopping.ts");
+  isShown, isShownWithFocus, getHidden, setHidden, parseHidden, listReasons, shoppingList } = await import("./shopping.ts");
 const { PHOTOS_DIR, getDb } = await import("./db.ts");
 const { parseRecipe, saveRecipe } = await import("./recipes.ts");
 type RecipeInput = import("./recipes.ts").RecipeInput;
@@ -173,6 +173,18 @@ test("an item shows when any of its reasons is on; one with no reason follows th
   assert.equal(isShown(item("Eggs"), ["Later"]), true);
   assert.equal(isShown(item("Eggs"), [NO_REASON]), false);
   assert.equal(isShown(item("Sage", "", { meals: ["Stuffing"] }), [NO_REASON]), true);
+});
+
+test("a focused reason shows only its items, whatever is switched off; with no focus the switches decide", () => {
+  const sage = item("Sage", "", { meals: ["Later", "Stuffing"] });
+  assert.equal(isShownWithFocus(sage, [], "stuffing"), true);
+  assert.equal(isShownWithFocus(sage, ["Later", "Stuffing"], "Stuffing"), true);
+  assert.equal(isShownWithFocus(sage, [], "Chili"), false);
+  assert.equal(isShownWithFocus(sage, [], NO_REASON), false);
+  assert.equal(isShownWithFocus(item("Eggs"), [NO_REASON], NO_REASON), true);
+  assert.equal(isShownWithFocus(item("Eggs"), [], "Stuffing"), false);
+  assert.equal(isShownWithFocus(sage, ["Later", "Stuffing"], null), false);
+  assert.equal(isShownWithFocus(item("Eggs"), ["Later"], null), true);
 });
 
 test("hidden reasons are stored and checked; the list carries them with the reasons to pick from", () => {

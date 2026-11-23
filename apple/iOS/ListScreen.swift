@@ -7,6 +7,7 @@ struct ListScreen: View {
     @State private var showDone = false
     @State private var reasonsFor: Item?        // the item whose reasons are being picked
     @State private var grace = Grace()
+    @State private var focus: String?           // the one reason shown for now (long-press a chip); never saved
     @Environment(\.undoManager) private var undoManager
     @State private var showSettings = false
     @State private var photoFor: Item?          // the item a photo is being taken or chosen for
@@ -18,12 +19,12 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                if !store.list.chips.isEmpty {
-                    ReasonChips(chips: store.list.chips) { reason in withAnimation { store.toggleHidden(reason) } }
+                if !store.list.chips.isEmpty || focus != nil {
+                    ReasonChips(chips: store.list.chips, focus: $focus) { reason in withAnimation { store.toggleHidden(reason) } }
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
-                ForEach(store.list.visibleGroups()) { group in
+                ForEach(store.list.visibleGroups(focus: focus)) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
@@ -42,8 +43,8 @@ struct ListScreen: View {
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.bg)
             .overlay {
-                if store.list.visibleGroups().isEmpty && store.list.done.isEmpty {
-                    Text(store.list.hiddenCount > 0 ? "Nothing for this trip.\nEverything left is for a reason that's switched off." : "Nothing on the list.")
+                if store.list.visibleGroups(focus: focus).isEmpty && store.list.done.isEmpty {
+                    Text(focus != nil ? "Nothing left for \(focus == noReason ? "no reason" : focus ?? "")." : store.list.hiddenCount > 0 ? "Nothing for this trip.\nEverything left is for a reason that's switched off." : "Nothing on the list.")
                         .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                 }
             }

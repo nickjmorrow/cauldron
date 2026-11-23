@@ -23,6 +23,13 @@ extension Item {
         if reasons.isEmpty { return !off.contains(noReason) }
         return reasons.contains { !off.contains($0.lowercased()) }
     }
+
+    /// A client can focus one reason for a moment (never saved): then only that reason's items show, whatever is
+    /// switched off. With no focus the switched-off reasons decide. (lib/shopping.ts isShownWithFocus)
+    func isShown(hidden: [String], focus: String?) -> Bool {
+        guard let focus else { return isShown(hidden: hidden) }
+        return focus == noReason ? reasons.isEmpty : has(focus)
+    }
 }
 
 extension ShoppingList {
@@ -30,9 +37,9 @@ extension ShoppingList {
     private var open: [Item] { groups.flatMap(\.items) }
 
     /// The groups without the items hidden this trip; groups left empty are dropped.
-    func visibleGroups() -> [ItemGroup] {
+    func visibleGroups(focus: String? = nil) -> [ItemGroup] {
         groups.compactMap { group in
-            let items = group.items.filter { $0.isShown(hidden: hiddenReasons) }
+            let items = group.items.filter { $0.isShown(hidden: hiddenReasons, focus: focus) }
             return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
         }
     }
@@ -66,32 +73,89 @@ extension ShoppingList {
 
 #if !os(watchOS)
 /// The chips in a row that scrolls sideways. Brass = shown this trip; outlined and struck through = hidden.
+/// One chip can be focused (shift+click on the Mac, a long press on the phone): it turns solid brass, the rest dim,
+/// and only its items show until the focus ends. The focus is this view's own and is never saved.
 struct ReasonChips: View {
     var chips: [ReasonChip]
+    @Binding var focus: String?
     var toggle: (String) -> Void
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(chips) { chip in
-                    Button { toggle(chip.reason) } label: {
-                        HStack(spacing: 6) {
-                            Text(chip.title).strikethrough(!chip.shown)
-                            Text("\(chip.count)").font(.caption).opacity(0.75)
+                    #if os(macOS)
+                    Button { tap(chip) } label: { label(chip) }
+                        .buttonStyle(.plain)
+                        .help(focus == nil ? "Click to show or hide these items. Shift-click to show only these." : "Click to show everything again")
+                        .accessibilityValue(value(chip))
+                    #else
+                    label(chip)
+                        .onTapGesture { tap(chip) }
+                        .onLongPressGesture { setFocus(focus == chip.reason ? nil : chip.reason) }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(chip.title), \(chip.count) items")
+                        .accessibilityValue(value(chip))
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction(named: focus == chip.reason ? "Show all" : "Show only these") {
+                            setFocus(focus == chip.reason ? nil : chip.reason)
                         }
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(chip.shown ? Theme.sun : Theme.muted)
-                        .padding(.horizontal, 12).padding(.vertical, 7)
-                        .background(chip.shown ? Theme.sun.opacity(0.12) : .clear, in: Capsule())
-                        .overlay(Capsule().strokeBorder(chip.shown ? Theme.sun.opacity(0.35) : Theme.line, lineWidth: 1))
-                        .contentShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(chip.title), \(chip.count) items")
-                    .accessibilityValue(chip.shown ? "shown" : "hidden")
+                    #endif
                 }
+                if focus != nil { showAll }
             }
         }
+        #if os(iOS)
+        .sensoryFeedback(.selection, trigger: focus)
+        #endif
+    }
+
+    /// Ends the focus; there even when the focused reason's chip has left the row (its last item was checked off).
+    private var showAll: some View {
+        Button { setFocus(nil) } label: {
+            Label("Show all", systemImage: "xmark")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(Theme.fg)
+                .padding(.horizontal, 12).padding(.vertical, 7)
+                .overlay(Capsule().strokeBorder(Theme.muted, lineWidth: 1))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        #if os(macOS)
+        .keyboardShortcut(.cancelAction)
+        #endif
+    }
+
+    private func label(_ chip: ReasonChip) -> some View {
+        let focused = focus == chip.reason
+        let lit = focus == nil ? chip.shown : focused
+        return HStack(spacing: 6) {
+            Text(chip.title).strikethrough(focus == nil && !chip.shown)
+            Text("\(chip.count)").font(.caption).opacity(0.75)
+        }
+        .font(.subheadline.weight(focused ? .semibold : .medium))
+        .foregroundStyle(focused ? Theme.sunInk : lit ? Theme.sun : Theme.muted)
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(focused ? Theme.sun : lit ? Theme.sun.opacity(0.12) : .clear, in: Capsule())
+        .overlay(Capsule().strokeBorder(focused ? Theme.sun : lit ? Theme.sun.opacity(0.35) : Theme.line, lineWidth: 1))
+        .opacity(focus != nil && !focused ? 0.5 : 1)
+        .contentShape(Capsule())
+        .accessibilityLabel("\(chip.title), \(chip.count) items")
+    }
+
+    private func value(_ chip: ReasonChip) -> String {
+        if focus == chip.reason { return "only these showing" }
+        return focus != nil ? "dimmed" : chip.shown ? "shown" : "hidden"
+    }
+
+    private func setFocus(_ reason: String?) { withAnimation { focus = reason } }
+
+    /// A plain tap while focused only ends the focus, so no switch is flipped by accident.
+    private func tap(_ chip: ReasonChip) {
+        #if os(macOS)
+        if NSEvent.modifierFlags.contains(.shift) { setFocus(focus == chip.reason ? nil : chip.reason); return }
+        #endif
+        if focus != nil { setFocus(nil) } else { toggle(chip.reason) }
     }
 }
 

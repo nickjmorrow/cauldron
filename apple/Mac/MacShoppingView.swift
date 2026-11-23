@@ -9,10 +9,11 @@ struct MacShoppingView: View {
     @State private var reasonsFor: Item?
     @State private var viewing: Item?
     @State private var grace = Grace()
+    @State private var focus: String?           // the one reason shown for now (shift-click a chip); never saved
     @State private var hoveredID: Int?
     @Environment(\.undoManager) private var undoManager
 
-    private var groups: [ItemGroup] { store.list.visibleGroups() }
+    private var groups: [ItemGroup] { store.list.visibleGroups(focus: focus) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +38,7 @@ struct MacShoppingView: View {
             }
             .overlay {
                 if groups.isEmpty && store.list.done.isEmpty {
-                    Text(store.list.hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list.")
+                    Text(focus != nil ? "Nothing left for \(focus == noReason ? "no reason" : focus ?? "")." : store.list.hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list.")
                         .foregroundStyle(Theme.muted)
                 }
             }
@@ -67,8 +68,8 @@ struct MacShoppingView: View {
         let open = groups.reduce(0) { $0 + $1.items.count }
         return VStack(alignment: .leading, spacing: 6) {
             MacAddBar(known: store.list.knownReasons) { name, aisle, reasons in store.add(name: name, aisle: aisle, reasons: reasons) }
-            if !store.list.chips.isEmpty {
-                ReasonChips(chips: store.list.chips) { reason in withAnimation { store.toggleHidden(reason) } }
+            if !store.list.chips.isEmpty || focus != nil {
+                ReasonChips(chips: store.list.chips, focus: $focus) { reason in withAnimation { store.toggleHidden(reason) } }
             }
             HStack {
                 Text(open == 1 ? "1 item this trip" : "\(open) items this trip").font(.caption).foregroundStyle(Theme.muted)
