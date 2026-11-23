@@ -156,6 +156,8 @@ struct MacShoppingView: View {
             }
         }
         .padding(.vertical, 5)
+        // The whole row takes the right-click, not only its text and icons.
+        .contentShape(Rectangle())
         .contextMenu {
             Button("What it's for…") { reasonsFor = stored }
             Button("Choose photo…") { choosePhoto(for: item) }
