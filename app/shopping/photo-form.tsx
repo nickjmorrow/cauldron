@@ -7,7 +7,7 @@ export function PhotoForm({ id, hasPhoto }: { id: number; hasPhoto: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState("");
 
-  // POST asks the server to find the product's picture in the store's catalog.
+  // POST asks the server to find the product's picture on the web.
   async function send(method: "PUT" | "DELETE" | "POST", body?: File) {
     setStatus(method === "PUT" ? "Uploading…" : method === "POST" ? "Finding…" : "Removing…");
     const response = await fetch(`/api/shopping/${id}/photo${method === "POST" ? "/find" : ""}`, { method, body }).catch(() => null);

@@ -6,7 +6,7 @@
 // Until the lookup answers, the item sits under a section guessed from its name (lib/sections.ts).
 import { execFile, execFileSync } from "node:child_process";
 import { promisify } from "node:util";
-import { attachProductPhoto, krogerEnabled } from "./kroger.ts";
+import { productPhotosEnabled, queueProductPhoto } from "./product-photos.ts";
 import { SECTIONS } from "./sections.ts";
 import { storeMapText } from "./store-map.ts";
 import { addItem, cleanAisle, finishLookup, guessedItems, markLookingUp, type ItemChange, type ShoppingItem } from "./shopping.ts";
@@ -90,10 +90,10 @@ export function lookUpGuessed(ask: AskAisle = askClaude): number {
 }
 
 // Adds an item and, when its aisle is only a guess, starts looking up the store's aisle in the background.
-// An item with no photo also gets the picture of the product it names, when the store's catalog is set up (lib/kroger.ts).
+// An item with no photo also gets the picture of the product it names, found on the web (lib/product-photos.ts).
 export function addAndLookUp(change: ItemChange & { name: string }): ShoppingItem {
   const item = addItem(change, { lookUp: lookupsEnabled() });
   if (item.looking) void lookUp(item.id, item.name);
-  if (!item.photo && krogerEnabled()) void attachProductPhoto(item.id, item.name, { onlyBranded: true });
+  if (!item.photo && productPhotosEnabled()) void queueProductPhoto(item.id, item.name);
   return item;
 }
