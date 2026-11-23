@@ -30,6 +30,9 @@ struct CheckMark: View {
             }
         }
         .frame(width: size, height: size)
+        // The whole box takes the click. Without this only the drawn outline does: on the Mac a click in the middle
+        // of an unchecked box did nothing.
+        .contentShape(Rectangle())
     }
 }
 
