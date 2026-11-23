@@ -5,7 +5,7 @@ struct ListScreen: View {
     var store: Store
     @Environment(\.scenePhase) private var scenePhase
     @State private var showDone = false
-    @AppStorage("showLater") private var showLater = false
+    @State private var reasonsFor: Item?        // the item whose reasons are being picked
     @State private var grace = Grace()
     @Environment(\.undoManager) private var undoManager
     @State private var showSettings = false
@@ -18,7 +18,12 @@ struct ListScreen: View {
     var body: some View {
         NavigationStack {
             List {
-                ForEach(store.list.visibleGroups(showLater: showLater)) { group in
+                if !store.list.chips.isEmpty {
+                    ReasonChips(chips: store.list.chips) { reason in withAnimation { store.toggleHidden(reason) } }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+                ForEach(store.list.visibleGroups()) { group in
                     Section {
                         ForEach(group.items) { item in row(item) }
                     } header: {
@@ -37,8 +42,8 @@ struct ListScreen: View {
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.bg)
             .overlay {
-                if store.list.visibleGroups(showLater: showLater).isEmpty && store.list.done.isEmpty {
-                    Text(store.list.laterCount > 0 ? "Nothing for this trip.\nEverything left is for later." : "Nothing on the list.")
+                if store.list.visibleGroups().isEmpty && store.list.done.isEmpty {
+                    Text(store.list.hiddenCount > 0 ? "Nothing for this trip.\nEverything left is for a reason that's switched off." : "Nothing on the list.")
                         .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                 }
             }
@@ -46,15 +51,6 @@ struct ListScreen: View {
             .navigationTitle("Shopping")
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    if store.list.laterCount > 0 || showLater {
-                        Button { withAnimation { showLater.toggle() } } label: {
-                            Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
-                                .labelStyle(.titleAndIcon)
-                        }
-                        .accessibilityLabel(showLater ? "Hide later items" : "Show \(store.list.laterCount) later items")
-                    }
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Settings")
@@ -63,12 +59,16 @@ struct ListScreen: View {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 VStack(spacing: 6) {
                     status
-                    AddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
+                    AddBar(known: store.list.knownReasons) { name, aisle, reasons in store.add(name: name, aisle: aisle, reasons: reasons) }
                 }
                 .padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 8)
                 .background(Theme.bg)
             }
             .sheet(isPresented: $showSettings) { SettingsSheet(store: store) }
+            .sheet(item: $reasonsFor) { item in
+                ReasonPicker(title: "\(item.name) is for", known: store.list.knownReasons, picked: item.reasons) { store.setReasons(item.id, $0) }
+                    .presentationDetents([.medium, .large])
+            }
             .photosPicker(isPresented: $choosingPhoto, selection: $pickedPhoto, matching: .images)
             .onChange(of: pickedPhoto) { _, picked in
                 guard let picked, let item = photoFor else { return }
@@ -130,6 +130,7 @@ struct ListScreen: View {
         .listRowBackground(Theme.surface)
         .listRowSeparatorTint(Theme.line)
         .contextMenu {
+            Button { reasonsFor = stored } label: { Label("What it's for", systemImage: "tag") }
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button { photoFor = item; takingPhoto = true } label: { Label("Take photo", systemImage: "camera") }
             }
@@ -282,12 +283,14 @@ private extension UIImage {
     }
 }
 
-/// Name, optional aisle and a "later" toggle; Return or the plus button adds the item.
+/// Name, optional aisle and what it's for (the tag opens the reasons); Return or the plus button adds the item.
 private struct AddBar: View {
-    var add: (_ name: String, _ aisle: String, _ later: Bool) -> Void
+    var known: [String]
+    var add: (_ name: String, _ aisle: String, _ reasons: [String]) -> Void
     @State private var name = ""
     @State private var aisle = ""
-    @State private var later = false
+    @State private var reasons: [String] = []
+    @State private var picking = false
     @FocusState private var nameFocused: Bool
 
     var body: some View {
@@ -305,14 +308,18 @@ private struct AddBar: View {
                 .onSubmit(submit)
                 .frame(width: 60, height: 44)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-            Button { later.toggle() } label: {
-                Image(systemName: "clock")
+            Button { picking = true } label: {
+                Image(systemName: reasons.isEmpty ? "tag" : "tag.fill")
                     .frame(width: 44, height: 44)
-                    .foregroundStyle(later ? Theme.sunInk : Theme.muted)
-                    .background(later ? Theme.sun : Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(reasons.isEmpty ? Theme.muted : Theme.sunInk)
+                    .background(reasons.isEmpty ? Theme.surface : Theme.sun, in: RoundedRectangle(cornerRadius: 12))
             }
-            .accessibilityLabel("Later")
-            .accessibilityAddTraits(later ? .isSelected : [])
+            .accessibilityLabel("What it's for")
+            .accessibilityValue(reasons.joined(separator: ", "))
+            .sheet(isPresented: $picking) {
+                ReasonPicker(title: "It's for", known: known, picked: reasons) { reasons = $0 }
+                    .presentationDetents([.medium, .large])
+            }
             Button(action: submit) {
                 Image(systemName: "plus").font(.body.weight(.semibold))
                     .frame(width: 44, height: 44)
@@ -330,8 +337,8 @@ private struct AddBar: View {
 
     private func submit() {
         guard !trimmed.isEmpty else { return }
-        add(trimmed, aisle.trimmingCharacters(in: .whitespaces), later)
-        name = ""; aisle = ""; later = false
+        add(trimmed, aisle.trimmingCharacters(in: .whitespaces), reasons)
+        name = ""; aisle = ""; reasons = []
         nameFocused = true
     }
 }

@@ -16,7 +16,7 @@ struct Item: Codable, Identifiable, Hashable {
     var photo: String? = nil
     /// The server is looking up which aisle it's in at the store. Optional (like meals) so older saved lists still load.
     var looking: Bool? = nil
-    /// The meals or recipes it's bought for.
+    /// What it's bought for: meals, recipes or any other reason. `later` says whether "Later" is one of them.
     var meals: [String]? = nil
 
     var isLooking: Bool { looking ?? false }
@@ -26,8 +26,8 @@ struct Item: Codable, Identifiable, Hashable {
     }
 }
 
-/// A section of the list ("Aisle 4", "Produce", "No aisle yet"). The server sorts and groups; clients show them as given,
-/// leaving out "later" items unless asked to show them.
+/// A section of the list ("Inbox", "Aisle 4", "Produce", "No aisle yet"). The server sorts and groups; clients show them
+/// as given, leaving out items whose reasons are switched off for this trip (Shared/Reasons.swift).
 struct ItemGroup: Codable, Hashable, Identifiable {
     var title: String
     /// What the aisle holds ("Pasta, condiments"), when known. Optional so lists saved before it existed still load.
@@ -40,16 +40,11 @@ struct ItemGroup: Codable, Hashable, Identifiable {
 struct ShoppingList: Codable, Hashable {
     var groups: [ItemGroup] = []
     var done: [Item] = []
+    /// Every reason an item can be given, and the ones switched off for this trip ("" = items with no reason).
+    /// Optional so lists saved before reasons existed still load.
+    var reasons: [String]? = nil
+    var hidden: [String]? = nil
 
-    /// The groups with "later" items left out unless `showLater`; groups left empty are dropped.
-    func visibleGroups(showLater: Bool) -> [ItemGroup] {
-        groups.compactMap { group in
-            let items = showLater ? group.items : group.items.filter { !$0.later }
-            return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
-        }
-    }
-
-    var laterCount: Int { groups.reduce(0) { $0 + $1.items.filter(\.later).count } }
     var anyLooking: Bool { groups.contains { $0.items.contains(where: \.isLooking) } }
 
     /// Marks an item in place, wherever it is, without moving it between sections.

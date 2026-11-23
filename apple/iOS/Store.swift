@@ -90,9 +90,26 @@ final class Store {
         submit(.patch(id, ["done": done]))
     }
 
+    /// Later is a reason like any other; the clock gives or takes it.
     func setLater(_ id: Int, _ later: Bool) {
-        list.update(id) { $0.later = later }
+        list.update(id) {
+            $0.later = later
+            $0.meals = $0.reasons.filter { $0.caseInsensitiveCompare(laterReason) != .orderedSame } + (later ? [laterReason] : [])
+        }
         submit(.patch(id, ["later": later]))
+    }
+
+    func setReasons(_ id: Int, _ reasons: [String]) {
+        list.update(id) { $0.meals = reasons; $0.later = $0.has(laterReason) }
+        submit(.patch(id, ["meals": reasons]))
+    }
+
+    /// Switches a reason's items off for this trip, or back on. Shared with every other client through the server.
+    func toggleHidden(_ reason: String) {
+        var hidden = list.hiddenReasons
+        if hidden.contains(reason) { hidden.removeAll { $0 == reason } } else { hidden.append(reason) }
+        list.hidden = hidden
+        submit(.setHidden(hidden))
     }
 
     func delete(_ id: Int) {
@@ -100,8 +117,8 @@ final class Store {
         submit(.delete(id))
     }
 
-    func add(name: String, aisle: String, later: Bool) {
-        submit(.add(name: name, aisle: aisle, later: later))
+    func add(name: String, aisle: String, reasons: [String]) {
+        submit(.add(name: name, aisle: aisle, meals: reasons))
     }
 
     /// Puts a deleted item back with the same details (it gets a new id).

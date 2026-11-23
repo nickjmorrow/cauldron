@@ -10,14 +10,18 @@ struct Write: Codable, Hashable {
         Write(method: "PATCH", path: "/api/shopping/\(id)", body: try? JSONSerialization.data(withJSONObject: fields))
     }
     static func delete(_ id: Int) -> Write { Write(method: "DELETE", path: "/api/shopping/\(id)") }
-    static func add(name: String, aisle: String, later: Bool) -> Write {
+    static func add(name: String, aisle: String, meals: [String]) -> Write {
         Write(method: "POST", path: "/api/shopping",
-              body: try? JSONSerialization.data(withJSONObject: ["name": name, "aisle": aisle, "later": later]))
+              body: try? JSONSerialization.data(withJSONObject: ["name": name, "aisle": aisle, "meals": meals]))
+    }
+    /// The reasons switched off for this trip ("" = items with no reason).
+    static func setHidden(_ reasons: [String]) -> Write {
+        Write(method: "PUT", path: "/api/shopping/hidden", body: try? JSONSerialization.data(withJSONObject: ["hidden": reasons]))
     }
     /// Puts a deleted item back (as a new item with the same details), for undo.
     static func restore(_ item: Item) -> Write {
         let fields: [String: Any] = ["name": item.name, "qty": item.qty, "aisle": item.aisle, "note": item.note,
-                                     "later": item.later, "meals": item.meals ?? []]
+                                     "meals": item.meals ?? []]
         return Write(method: "POST", path: "/api/shopping", body: try? JSONSerialization.data(withJSONObject: fields))
     }
     static let clearDone = Write(method: "POST", path: "/api/shopping/clear")

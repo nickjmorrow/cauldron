@@ -6,12 +6,12 @@ import UniformTypeIdentifiers
 struct MacShoppingView: View {
     var store: Store
     @State private var showDone = false
-    @AppStorage("showLater") private var showLater = false
+    @State private var reasonsFor: Item?
     @State private var viewing: Item?
     @State private var grace = Grace()
     @Environment(\.undoManager) private var undoManager
 
-    private var groups: [ItemGroup] { store.list.visibleGroups(showLater: showLater) }
+    private var groups: [ItemGroup] { store.list.visibleGroups() }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,20 +36,24 @@ struct MacShoppingView: View {
             }
             .overlay {
                 if groups.isEmpty && store.list.done.isEmpty {
-                    Text(store.list.laterCount > 0 ? "Nothing for this trip. Everything left is for later." : "Nothing on the list.")
+                    Text(store.list.hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list.")
                         .foregroundStyle(Theme.muted)
                 }
             }
         }
         .task { await store.sync() }
         .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
-        .onReceive(NotificationCenter.default.publisher(for: .toggleLater)) { _ in withAnimation { showLater.toggle() } }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleLater)) { _ in withAnimation { store.toggleHidden(laterReason) } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             Task { await store.sync() }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in grace.applyAll() }
         .toolbar {
             Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+        }
+        .sheet(item: $reasonsFor) { item in
+            ReasonPicker(title: "\(item.name) is for", known: store.list.knownReasons, picked: item.reasons) { store.setReasons(item.id, $0) }
+                .frame(width: 340, height: 420)
         }
         .sheet(item: $viewing) { item in
             VStack {
@@ -61,19 +65,14 @@ struct MacShoppingView: View {
         }
     }
 
-    /// Pinned above the list, so it's in reach however far down you are: adding an item, and the later switch (also ⌘L).
+    /// Pinned above the list, so it's in reach however far down you are: adding an item, and the reasons shown this
+    /// trip (⌘L switches Later).
     private var topBar: some View {
-        let open = store.list.groups.reduce(0) { $0 + $1.items.filter { !$0.later }.count }
+        let open = groups.reduce(0) { $0 + $1.items.count }
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                MacAddBar { name, aisle, later in store.add(name: name, aisle: aisle, later: later) }
-                Divider().frame(height: 22)
-                Button { withAnimation { showLater.toggle() } } label: {
-                    Label(showLater ? "Hide later" : "Later (\(store.list.laterCount))", systemImage: showLater ? "clock.fill" : "clock")
-                }
-                .buttonStyle(.bordered)
-                .disabled(store.list.laterCount == 0 && !showLater)
-                .help(showLater ? "Hide items left for a later trip (⌘L)" : "Show \(store.list.laterCount) items left for a later trip (⌘L)")
+            MacAddBar(known: store.list.knownReasons) { name, aisle, reasons in store.add(name: name, aisle: aisle, reasons: reasons) }
+            if !store.list.chips.isEmpty {
+                ReasonChips(chips: store.list.chips) { reason in withAnimation { store.toggleHidden(reason) } }
             }
             HStack {
                 Text(open == 1 ? "1 item this trip" : "\(open) items this trip").font(.caption).foregroundStyle(Theme.muted)
@@ -157,6 +156,7 @@ struct MacShoppingView: View {
         }
         .padding(.vertical, 5)
         .contextMenu {
+            Button("What it's for…") { reasonsFor = stored }
             Button(item.later ? "Move to this trip" : "Move to later") { grace.toggleLater(stored, in: store, undo: undoManager) }
             Button("Choose photo…") { choosePhoto(for: item) }
             Button("Find product photo") { Task { await store.findPhoto(item.id) } }
@@ -205,19 +205,28 @@ private extension NSImage {
     }
 }
 
-/// Name, optional aisle and a "later" toggle; Return adds the item.
+/// Name, optional aisle and what it's for; Return adds the item.
 private struct MacAddBar: View {
-    var add: (_ name: String, _ aisle: String, _ later: Bool) -> Void
+    var known: [String]
+    var add: (_ name: String, _ aisle: String, _ reasons: [String]) -> Void
     @State private var name = ""
     @State private var aisle = ""
-    @State private var later = false
+    @State private var reasons: [String] = []
+    @State private var picking = false
     @FocusState private var nameFocused: Bool
 
     var body: some View {
         HStack(spacing: 8) {
             TextField("Add item", text: $name).focused($nameFocused).onSubmit(submit)
             TextField("Aisle", text: $aisle).frame(width: 90).onSubmit(submit)
-            Toggle("Later", isOn: $later)
+            Button { picking = true } label: {
+                Label(reasons.isEmpty ? "For" : reasons.joined(separator: ", "), systemImage: reasons.isEmpty ? "tag" : "tag.fill").lineLimit(1)
+            }
+            .frame(maxWidth: 200)
+            .help("What it's for: meals, an occasion, any reason")
+            .popover(isPresented: $picking, arrowEdge: .bottom) {
+                ReasonPicker(title: "It's for", known: known, picked: reasons) { reasons = $0 }.frame(width: 300, height: 380)
+            }
             Button("Add", action: submit).keyboardShortcut(.defaultAction).disabled(trimmed.isEmpty)
         }
         .textFieldStyle(.roundedBorder)
@@ -227,8 +236,8 @@ private struct MacAddBar: View {
 
     private func submit() {
         guard !trimmed.isEmpty else { return }
-        add(trimmed, aisle.trimmingCharacters(in: .whitespaces), later)
-        name = ""; aisle = ""; later = false
+        add(trimmed, aisle.trimmingCharacters(in: .whitespaces), reasons)
+        name = ""; aisle = ""; reasons = []
         nameFocused = true
     }
 }
