@@ -155,6 +155,39 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
   meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
 );
+-- Recipes: what gets cooked and shopped for (lib/recipes.ts). tags is a JSON list of words.
+CREATE TABLE IF NOT EXISTS recipes (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  summary TEXT NOT NULL DEFAULT '',
+  serves TEXT NOT NULL DEFAULT '',
+  active_time TEXT NOT NULL DEFAULT '',
+  total_time TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]'
+);
+-- One line of a recipe's ingredient list as written; buy is what to shop for ('' = nothing), group_name a sub-list heading.
+CREATE TABLE IF NOT EXISTS recipe_ingredients (
+  id INTEGER PRIMARY KEY,
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  group_name TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL,
+  buy TEXT NOT NULL DEFAULT ''
+);
+-- The rest of a recipe (instructions, log, storage...): a title and a body of Markdown bullets.
+CREATE TABLE IF NOT EXISTS recipe_sections (
+  id INTEGER PRIMARY KEY,
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT ''
+);
+-- Which meals a recipe belongs to. A recipe is typical when one of its meals is in the typical day.
+CREATE TABLE IF NOT EXISTS meal_recipes (
+  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  PRIMARY KEY (meal_id, recipe_id)
+);
 -- Reasons switched off for this trip: their items are hidden. '' = items with no reason.
 CREATE TABLE IF NOT EXISTS shopping_hidden (
   reason TEXT PRIMARY KEY

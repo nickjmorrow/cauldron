@@ -4,7 +4,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getDb, PHOTOS_DIR } from "./db.ts";
-import { mealsUsing } from "./item-meals.ts";
+import { recipesUsing } from "./recipes.ts";
 import { guessSection, sectionRank } from "./sections.ts";
 import { getAisleContents } from "./store-map.ts";
 
@@ -188,12 +188,12 @@ const photoPath = (id: number) => join(PHOTOS_DIR, String(id));
 
 // The aisle comes from what was typed, else the last time this item was on the list, else a guess from its name.
 // With lookUp, a guessed item is marked as being looked up; the caller starts the lookup (lib/aisles.ts).
-// Added with no reason, it's for the meals that use it, when there are any (lib/item-meals.ts).
+// Added with no reason, it's for the typical recipes that use it, when there are any (lib/recipes.ts).
 export function addItem(change: ItemChange & { name: string }, { lookUp = false } = {}): ShoppingItem {
   const remembered = change.aisle ? "" : rememberedAisle(change.name);
   const [aisle, from] = change.aisle ? [change.aisle, "you"] : remembered ? [remembered, "remembered"] : [guessSection(change.name), "guess"];
   const photo = rememberedPhoto(change.name);
-  const meals = change.meals?.length ? change.meals : mealsUsing(change.name);
+  const meals = change.meals?.length ? change.meals : recipesUsing(change.name);
   const result = getDb().prepare("INSERT INTO shopping_items (name, qty, aisle, note, done_at, aisle_from, lookup, meals) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
     .run(change.name, change.qty ?? "", aisle, change.note ?? "", change.done ? new Date().toISOString() : null,
       from, lookUp && from === "guess" ? 1 : 0, JSON.stringify(meals));

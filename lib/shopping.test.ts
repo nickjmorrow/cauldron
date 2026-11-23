@@ -8,7 +8,8 @@ process.env.CAULDRON_DB = FILE;
 const { addItem, updateItem, removeItem, clearDone, listItems, groupItems, parseChange, aisleTitle, NO_AISLE, INBOX, NO_REASON, setPhoto, finishLookup, markLookingUp, getPhoto, removePhoto,
   isShown, getHidden, setHidden, parseHidden, listReasons, shoppingList } = await import("./shopping.ts");
 const { PHOTOS_DIR, getDb } = await import("./db.ts");
-const { buyName, mealsUsing } = await import("./item-meals.ts");
+const { parseRecipe, saveRecipe } = await import("./recipes.ts");
+type RecipeInput = import("./recipes.ts").RecipeInput;
 
 test.after(() => {
   for (const ext of ["", "-wal", "-shm"]) rmSync(FILE + ext, { force: true });
@@ -195,28 +196,17 @@ test("reasons on the list come first A to Z, then ones used before; a new reason
   assert.equal(reasons.filter((r) => r.toLowerCase() === "stuffing").length, 1);
 });
 
-test("an item added with no reason is for the typical-day meals that use it, not occasional or unused ones", () => {
+test("an item added with no reason is for the typical recipes that use it; a given reason wins", () => {
   const db = getDb();
   const id = (sql: string, ...args: (string | number)[]) => Number(db.prepare(sql).run(...args).lastInsertRowid);
-  const leek = id("INSERT INTO ingredients (name, serving, status) VALUES ('Leeks, raw', '100 g', 'approved')");
-  const meal = (name: string, occasional = 0) => {
-    const m = id("INSERT INTO meals (name, status, occasional) VALUES (?, 'approved', ?)", name, occasional);
-    db.prepare("INSERT INTO meal_items (meal_id, ingredient_id, qty) VALUES (?, ?, 1)").run(m, leek);
-    return m;
-  };
-  meal("Braise", 1);
-  const soup = meal("Leek soup");
-  meal("Abandoned tart");
+  const soup = id("INSERT INTO meals (name, status) VALUES ('Leek soup & bread', 'approved')");
   const day = id("INSERT INTO days (name, position) VALUES ('Standard day', 1)");
   const slot = id("INSERT INTO day_slots (day_id, name, position) VALUES (?, 'Lunch', 1)", day);
   db.prepare("INSERT INTO slot_options (slot_id, meal_id, is_planned) VALUES (?, ?, 1)").run(slot, soup);
+  saveRecipe({ ...(parseRecipe({ name: "Leek soup", ingredients: [{ text: "3 leeks, sliced", buy: "leeks" }] }) as RecipeInput), meals: ["Leek soup & bread"] });
 
-  assert.equal(buyName("Celery, Raw"), "celery");
-  assert.equal(buyName("Eggs (large)"), "egg");
-  assert.deepEqual(mealsUsing("leek"), ["Leek soup"]);
-  assert.deepEqual(mealsUsing("Leek soup mix"), []);
   assert.deepEqual(addItem({ name: "Leeks" }).meals, ["Leek soup"]);
-  assert.deepEqual(addItem({ name: "Leeks", meals: ["Party"] }).meals, ["Party"]); // a given reason wins
+  assert.deepEqual(addItem({ name: "Leeks", meals: ["Party"] }).meals, ["Party"]);
   assert.deepEqual(addItem({ name: "Batteries" }).meals, []);
 });
 
