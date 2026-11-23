@@ -9,6 +9,7 @@ struct MacShoppingView: View {
     @State private var reasonsFor: Item?
     @State private var viewing: Item?
     @State private var grace = Grace()
+    @State private var hoveredID: Int?
     @Environment(\.undoManager) private var undoManager
 
     private var groups: [ItemGroup] { store.list.visibleGroups() }
@@ -154,8 +155,20 @@ struct MacShoppingView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Photo of \(item.name)")
             }
+            // Shows only under the pointer; it keeps its place when hidden, so the row doesn't shift.
+            Button { ShoppingUndo.delete(stored, store: store, undo: undoManager) } label: {
+                Image(systemName: "trash").foregroundStyle(Theme.muted).frame(width: 28, height: 28).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .opacity(hoveredID == stored.id ? 1 : 0)
+            .padding(.horizontal, -6)
+            .help("Delete (⌘Z puts it back)")
+            .accessibilityLabel("Delete \(item.name)")
         }
         .padding(.vertical, 5)
+        .onHover { inside in
+            if inside { hoveredID = stored.id } else if hoveredID == stored.id { hoveredID = nil }
+        }
         // The whole row takes the right-click, not only its text and icons.
         .contentShape(Rectangle())
         .contextMenu {
