@@ -4,24 +4,62 @@ import { countByUse, UseFilterToggle } from "../in-use-toggle.tsx";
 import { UseTag } from "../flags.tsx";
 import { parseUseFilter, useOf } from "../../lib/usage.ts";
 import { createMeal } from "../actions.ts";
+import { mealSlots, nextMealSort, parseMealSort, sortMeals, firstDir, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
 
-export default async function Meals({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
-  const filter = parseUseFilter((await searchParams).show);
+const COLUMNS: { key: MealSortKey; label: string; numeric?: boolean }[] = [
+  { key: "name", label: "Meal" }, { key: "slot", label: "Usually" },
+  { key: "calories", label: "kcal", numeric: true }, { key: "protein", label: "Protein g", numeric: true },
+  { key: "carbs", label: "Carbs g", numeric: true }, { key: "fat", label: "Fat g", numeric: true },
+];
+
+export default async function Meals({ searchParams }: { searchParams: Promise<{ show?: string; slot?: string; sort?: string; dir?: string }> }) {
+  const params = await searchParams;
+  const filter = parseUseFilter(params.show);
+  const sort = parseMealSort(params.sort, params.dir);
   const day = inUse(getOnlyDay()).meals;
   const occasional = occasionalUse().meals;
   const use = (m: { id: number }) => useOf(m.id, day, occasional);
   const everything = listMeals();
-  const meals = filter === "all" ? everything : everything.filter((m) => use(m) === filter);
+  const inFilter = filter === "all" ? everything : everything.filter((m) => use(m) === filter);
+  const slots = mealSlots(inFilter);
+  const slot = slots.includes(params.slot ?? "") ? params.slot : undefined;
+  const meals = sortMeals(slot ? inFilter.filter((m) => m.typical_slot === slot) : inFilter, sort);
+  // Every link keeps the other choices; defaults stay out of the address.
+  const href = (to: { show?: typeof filter; slot?: string; sort?: MealSort }) => {
+    const query = new URLSearchParams();
+    const show = to.show ?? filter;
+    const order = to.sort ?? sort;
+    if (show !== "day") query.set("show", show);
+    if (to.slot) query.set("slot", to.slot);
+    if (order.key !== "name") query.set("sort", order.key);
+    if (order.dir !== firstDir(order.key)) query.set("dir", order.dir);
+    return query.size ? `/meals?${query}` : "/meals";
+  };
   return (
     <>
       <h1>Meals</h1>
       <p className="lede">A meal is a list of ingredients with quantities. The typical day picks from these; mark the ones you cook now and then (cookies, a stew) as occasional on the meal's page.</p>
       <div className="row" style={{ marginBottom: 14 }}>
-        <UseFilterToggle current={filter} counts={countByUse(everything, use)} href={(f) => (f === "day" ? "/meals" : `/meals?show=${f}`)} />
+        <UseFilterToggle current={filter} counts={countByUse(everything, use)} href={(f) => href({ show: f, slot })} />
       </div>
+      {slots.length > 1 && (
+        <div className="recipe-filters" role="group" aria-label="Usually eaten at">
+          <Link href={href({})} className="shop-reason" aria-pressed={!slot} replace>Any time</Link>
+          {slots.map((s) => <Link key={s} href={href({ slot: s })} className="shop-reason" aria-pressed={slot === s} replace>{s}</Link>)}
+        </div>
+      )}
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Meal</th><th>Usually</th><th className="num">kcal</th><th className="num">Protein g</th><th className="num">Carbs g</th><th className="num">Fat g</th></tr></thead>
+          <thead><tr>
+            {COLUMNS.map((c) => {
+              const sorted = sort.key === c.key;
+              return (
+                <th key={c.key} className={c.numeric ? "num" : undefined} aria-sort={sorted ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}>
+                  <Link href={href({ slot, sort: nextMealSort(sort, c.key) })} className="sort" replace>{c.label}{sorted && <span aria-hidden="true">{sort.dir === "asc" ? " ▲" : " ▼"}</span>}</Link>
+                </th>
+              );
+            })}
+          </tr></thead>
           <tbody>
             {meals.map((m) => (
               <tr key={m.id} className={m.status}>
