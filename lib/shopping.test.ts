@@ -195,7 +195,7 @@ test("reasons on the list come first A to Z, then ones used before; a new reason
   assert.equal(reasons.filter((r) => r.toLowerCase() === "stuffing").length, 1);
 });
 
-test("an item added with no reason is for the meals that use it: typical-day meals first, then occasional ones, and no others", () => {
+test("an item added with no reason is for the typical-day meals that use it, not occasional or unused ones", () => {
   const db = getDb();
   const id = (sql: string, ...args: (string | number)[]) => Number(db.prepare(sql).run(...args).lastInsertRowid);
   const leek = id("INSERT INTO ingredients (name, serving, status) VALUES ('Leeks, raw', '100 g', 'approved')");
@@ -213,9 +213,9 @@ test("an item added with no reason is for the meals that use it: typical-day mea
 
   assert.equal(buyName("Celery, Raw"), "celery");
   assert.equal(buyName("Eggs (large)"), "egg");
-  assert.deepEqual(mealsUsing("leek"), ["Leek soup", "Braise"]);
+  assert.deepEqual(mealsUsing("leek"), ["Leek soup"]);
   assert.deepEqual(mealsUsing("Leek soup mix"), []);
-  assert.deepEqual(addItem({ name: "Leeks" }).meals, ["Leek soup", "Braise"]);
+  assert.deepEqual(addItem({ name: "Leeks" }).meals, ["Leek soup"]);
   assert.deepEqual(addItem({ name: "Leeks", meals: ["Party"] }).meals, ["Party"]); // a given reason wins
   assert.deepEqual(addItem({ name: "Batteries" }).meals, []);
 });
