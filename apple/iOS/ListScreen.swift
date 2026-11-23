@@ -134,6 +134,7 @@ struct ListScreen: View {
                 Button { photoFor = item; takingPhoto = true } label: { Label("Take photo", systemImage: "camera") }
             }
             Button { photoFor = item; choosingPhoto = true } label: { Label("Choose photo", systemImage: "photo") }
+            Button { Task { await store.findPhoto(item.id) } } label: { Label("Find product photo", systemImage: "magnifyingglass") }
             if item.photo?.isEmpty == false {
                 Button(role: .destructive) { Task { await store.removePhoto(item.id) } } label: { Label("Remove photo", systemImage: "trash") }
             }

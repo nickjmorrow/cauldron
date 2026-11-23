@@ -7,9 +7,10 @@ export function PhotoForm({ id, hasPhoto }: { id: number; hasPhoto: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState("");
 
-  async function send(method: "PUT" | "DELETE", body?: File) {
-    setStatus(method === "PUT" ? "Uploading…" : "Removing…");
-    const response = await fetch(`/api/shopping/${id}/photo`, { method, body }).catch(() => null);
+  // POST asks the server to find the product's picture in the store's catalog.
+  async function send(method: "PUT" | "DELETE" | "POST", body?: File) {
+    setStatus(method === "PUT" ? "Uploading…" : method === "POST" ? "Finding…" : "Removing…");
+    const response = await fetch(`/api/shopping/${id}/photo${method === "POST" ? "/find" : ""}`, { method, body }).catch(() => null);
     if (!response?.ok) {
       const reason = await response?.json().then((r: { error?: string }) => r.error).catch(() => undefined);
       setStatus(reason ?? "Couldn't reach the server.");
@@ -25,6 +26,7 @@ export function PhotoForm({ id, hasPhoto }: { id: number; hasPhoto: boolean }) {
         {hasPhoto ? "Replace photo" : "Add photo"}
         <input type="file" accept="image/*" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) send("PUT", file); }} />
       </label>
+      <button className="link" onClick={() => send("POST")}>Find product photo</button>
       {hasPhoto && <button className="link danger" onClick={() => send("DELETE")}>Remove photo</button>}
       {status && <span className="muted" role="status">{status}</span>}
     </div>

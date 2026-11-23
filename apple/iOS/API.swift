@@ -49,6 +49,11 @@ struct API {
         try await call(Write(method: "PUT", path: "/api/shopping/\(id)/photo", body: jpeg), contentType: "image/jpeg", timeout: 60)
     }
 
+    /// Asks the server to find the product's picture in the store's catalog and make it the item's photo.
+    func findPhoto(_ id: Int) async throws {
+        try await call(Write(method: "POST", path: "/api/shopping/\(id)/photo/find"), timeout: 60)
+    }
+
     func deletePhoto(_ id: Int) async throws {
         try await call(Write(method: "DELETE", path: "/api/shopping/\(id)/photo"))
     }

@@ -159,6 +159,7 @@ struct MacShoppingView: View {
         .contextMenu {
             Button(item.later ? "Move to this trip" : "Move to later") { grace.toggleLater(stored, in: store, undo: undoManager) }
             Button("Choose photo…") { choosePhoto(for: item) }
+            Button("Find product photo") { Task { await store.findPhoto(item.id) } }
             if item.photo?.isEmpty == false {
                 Button("Remove photo") { Task { await store.removePhoto(item.id) } }
             }

@@ -61,6 +61,18 @@ final class Store {
         }
     }
 
+    func findPhoto(_ id: Int) async {
+        guard let api else { error = "Set the server address in settings."; return }
+        do {
+            try await api.findPhoto(id)
+            await sync()
+        } catch let refused as Refused {
+            error = refused.message
+        } catch {
+            self.error = "Can't reach the server, so no product photo was found."
+        }
+    }
+
     func removePhoto(_ id: Int) async {
         guard let api else { return }
         do {
