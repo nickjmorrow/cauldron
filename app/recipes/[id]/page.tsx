@@ -16,7 +16,7 @@ function View({ recipe, links, mealIds }: { recipe: Recipe; links: Map<string, n
       {recipe.summary && <div className="lede"><Markdown body={recipe.summary} links={links} /></div>}
       <p className="muted recipe-facts">
         {facts.join(" · ")}
-        {recipe.tags.map((t) => <Link key={t} href={`/recipes?tag=${encodeURIComponent(t)}`} className="badge">{t}</Link>)}
+        {recipe.tags.map((t) => <Link key={t} href={`/recipes?tag=${encodeURIComponent(t)}&show=all`} className="badge">{t}</Link>)}
       </p>
       {recipe.meals.length > 0 && (
         <p className="muted">In the meal{recipe.meals.length > 1 ? "s" : ""}{" "}

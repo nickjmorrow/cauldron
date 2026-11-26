@@ -6,12 +6,13 @@ export default async function Recipes({ searchParams }: { searchParams: Promise<
   const params = await searchParams;
   const everything = listRecipes();
   const tags = [...new Set(everything.flatMap((r) => r.tags))].sort((a, b) => a.localeCompare(b));
-  const typicalOnly = params.show === "typical";
+  // The typical ones are what's shown first; ?show=all lists every recipe.
+  const typicalOnly = params.show !== "all";
   const recipes = everything.filter((r) => (!params.tag || r.tags.includes(params.tag)) && (!typicalOnly || r.typical));
   const href = (tag: string | undefined, typical: boolean) => {
     const query = new URLSearchParams();
     if (tag) query.set("tag", tag);
-    if (typical) query.set("show", "typical");
+    if (!typical) query.set("show", "all");
     return query.size ? `/recipes?${query}` : "/recipes";
   };
   return (
@@ -24,7 +25,7 @@ export default async function Recipes({ searchParams }: { searchParams: Promise<
         <button className="primary">Add recipe</button>
       </form>
       <div className="recipe-filters">
-        <Link href={href(params.tag, !typicalOnly)} className="shop-reason" aria-pressed={typicalOnly} replace>Typical only</Link>
+        <Link href={href(params.tag, !typicalOnly)} className="shop-reason" aria-pressed={typicalOnly} replace>Typical</Link>
         <Link href={href(undefined, typicalOnly)} className="shop-reason" aria-pressed={!params.tag} replace>All tags</Link>
         {tags.map((t) => <Link key={t} href={href(t, typicalOnly)} className="shop-reason" aria-pressed={params.tag === t} replace>{t}</Link>)}
       </div>
