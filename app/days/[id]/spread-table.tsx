@@ -1,4 +1,5 @@
-import { NUTRIENTS, NUTRIENT_GROUPS, type NutrientKey } from "../../../lib/nutrients.ts";
+import Link from "next/link";
+import { NUTRIENTS, NUTRIENT_GROUPS, type NutrientKey, type Nutrients } from "../../../lib/nutrients.ts";
 import { daySpread, standout, type NutrientSpread } from "../../../lib/spread.ts";
 import { judge, type Target } from "../../../lib/compute.ts";
 import type { Slot } from "../../../lib/queries.ts";
@@ -49,9 +50,9 @@ function Row({ label, unit, s, target }: { label: string; unit: string; s: Nutri
 }
 
 // What a typical day adds up to when every variation is eaten equally often, and how far a day can swing from it.
-// With targets, each typical amount is compared with its target.
-export function SpreadTable({ slots, targets }: { slots: Slot[]; targets?: Record<string, Target> }) {
-  const { parts, nutrients } = daySpread(slots, KEYS as NutrientKey[]);
+// With targets, each typical amount is compared with its target. Supplements being taken are counted in every day.
+export function SpreadTable({ slots, targets, supplements = {} }: { slots: Slot[]; targets?: Record<string, Target>; supplements?: Nutrients }) {
+  const { parts, nutrients } = daySpread(slots, KEYS as NutrientKey[], undefined, supplements);
   const withTarget = targets !== undefined;
   return (
     <section aria-label="Nutrients">
@@ -59,6 +60,7 @@ export function SpreadTable({ slots, targets }: { slots: Slot[]; targets?: Recor
       <p className="muted sp-lede">
         {parts.length === 0 ? "Your day has no variations, so these are the same every day."
           : "A typical day, with every variation eaten equally often. ± is how far a day can swing either way. When it's highlighted, the variation causing it is named. Open a row to see each variation's effect."}
+        {Object.keys(supplements).length > 0 && <> Your <Link href="/supplements">supplements</Link> are counted.</>}
       </p>
       {NUTRIENT_GROUPS.map((g) => {
         const rows = g.items.filter((n) => nutrients[n.key].max > 0 || targets?.[n.key]?.daily);

@@ -15,7 +15,8 @@ export type Goal = {
   hardCeiling?: number; // never beyond this
 };
 // ingredientNutrients covers foods already added by hand even when they may not be suggested (the pool), so their totals still count.
-export type Model = { options: SolverOption[]; mealNutrients: Record<number, Nutrients>; pool: PoolFood[]; ingredientNutrients?: Record<number, Nutrients> };
+// fixed is what every day gets whatever is eaten (supplements): it counts toward totals and nothing can change it.
+export type Model = { options: SolverOption[]; mealNutrients: Record<number, Nutrients>; pool: PoolFood[]; ingredientNutrients?: Record<number, Nutrients>; fixed?: Nutrients };
 export type SolveInput = Model & { goals: Goal[]; start: Adjustment[]; maxSteps?: number };
 export type SolveResult = { adjustments: Adjustment[]; before: Nutrients; after: Nutrients; steps: number };
 
@@ -65,6 +66,7 @@ const eaten = (group: SolverOption[], state: State) => group.filter((o) => !stat
 function totalsOfState(model: Model, state: State): Nutrients {
   const total: Record<string, number> = {};
   const add = (n: Nutrients, by: number) => { for (const [k, v] of Object.entries(n)) total[k] = (total[k] ?? 0) + (v as number) * by; };
+  if (model.fixed) add(model.fixed, 1);
   for (const group of groupsOf(model.options)) {
     const left = eaten(group, state);
     for (const option of left) add(option.nutrients, (state.scale.get(option.optionId) ?? 1) / left.length);
@@ -108,7 +110,7 @@ type Move = (s: State) => State | undefined;
 
 export function solve(input: SolveInput): SolveResult {
   const { goals } = input;
-  const model: Model = { options: input.options, mealNutrients: input.mealNutrients, pool: input.pool, ingredientNutrients: input.ingredientNutrients };
+  const model: Model = { options: input.options, mealNutrients: input.mealNutrients, pool: input.pool, ingredientNutrients: input.ingredientNutrients, fixed: input.fixed };
   const start = stateOf(input.start);
   const groups = groupsOf(input.options);
   const pool = [...input.pool].sort((a, b) => a.ingredientId - b.ingredientId);

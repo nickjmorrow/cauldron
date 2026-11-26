@@ -189,6 +189,18 @@ CREATE TABLE IF NOT EXISTS aisle_contents (
   aisle TEXT PRIMARY KEY,
   holds TEXT NOT NULL
 );
+-- Pills and powders taken on a schedule rather than eaten in a meal (lib/supplements.ts). amount is the dose as taken
+-- ("2 softgels"), nutrients what that adds to a day (JSON, the same keys as an ingredient's). Only 'taking' counts.
+CREATE TABLE IF NOT EXISTS supplements (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  product TEXT NOT NULL DEFAULT '',
+  amount TEXT NOT NULL DEFAULT '',
+  time TEXT NOT NULL DEFAULT 'morning' CHECK (time IN ('morning','afternoon','evening','bedtime')),
+  note TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'taking' CHECK (status IN ('taking','sometimes','stopped')),
+  nutrients TEXT NOT NULL DEFAULT '{}'
+);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL

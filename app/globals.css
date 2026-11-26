@@ -282,6 +282,12 @@ ul.plain-chips .chip { padding-right: 10px; }
 .profile-form .row input { width: 84px; }
 .profile-form .row:last-child { grid-column: 1 / -1; }
 
+/* Supplements form: the nutrients a dose adds, folded away until wanted */
+.supp-nutrients { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+.supp-nutrients > summary { cursor: pointer; }
+.supp-nutrients fieldset { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px 14px; border: 0; padding: 0; margin: 12px 0 0; }
+.supp-nutrients legend { padding: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+
 /* Day page: switch between a day's versions */
 .toggles { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 18px; }
 .toggle-group { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }

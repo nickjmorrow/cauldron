@@ -30,7 +30,7 @@ extension Notification.Name {
 
 /// The sidebar's places: the native shopping list, and the planner pages, which are the server's web pages until they get native screens.
 enum Place: String, CaseIterable, Identifiable {
-    case shopping, day, meals, ingredients, kitchen, targets, review
+    case shopping, day, meals, ingredients, supplements, kitchen, targets, review
     var id: String { rawValue }
 
     var title: String {
@@ -39,6 +39,7 @@ enum Place: String, CaseIterable, Identifiable {
         case .day: "Day"
         case .meals: "Meals"
         case .ingredients: "Ingredients"
+        case .supplements: "Supplements"
         case .kitchen: "Kitchen"
         case .targets: "Targets"
         case .review: "Review"
@@ -51,6 +52,7 @@ enum Place: String, CaseIterable, Identifiable {
         case .day: "sun.max"
         case .meals: "fork.knife"
         case .ingredients: "carrot"
+        case .supplements: "pills"
         case .kitchen: "refrigerator"
         case .targets: "target"
         case .review: "checklist"

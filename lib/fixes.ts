@@ -6,6 +6,7 @@ import { listTolerances } from "./tolerances.ts";
 import { addFood, planMeal, removeMeal, resetVersion, scaleMeal } from "./adjustments.ts";
 import { NUTRIENTS, type NutrientKey } from "./nutrients.ts";
 import { GOALS } from "./calculators.ts";
+import { supplementTotals } from "./supplements.ts";
 import { judge } from "./compute.ts";
 import type { Adjustment } from "./resolve.ts";
 import { versionLabel, type VersionKey } from "./versions.ts";
@@ -56,6 +57,7 @@ export function buildModel(day: Day): Model {
     mealNutrients: Object.fromEntries(listMeals().map((m) => [m.id, m.totals])),
     pool: poolFor(day),
     ingredientNutrients: Object.fromEntries(listIngredients().map((i) => [i.id, i.nutrients])),
+    fixed: supplementTotals(),
   };
 }
 

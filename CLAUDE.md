@@ -4,6 +4,7 @@ Diet planner (Next.js, `node:sqlite`). See README.md for how it fits together, h
 
 - Direction: Cauldron should be a native app that works on desktop (Mac), phone and watch, with the Next.js server as the shared store and API. New features should be reachable from the native apps (`apple/`, SwiftUI), not only the web pages. Only the shopping list is native so far; on the Mac the planner pages are the server's web pages inside the app.
 - Shopping items are always grouped by aisle (numbered aisles, then store sections in walking order, from `lib/sections.ts` when no aisle is known), with an "Inbox" group first for items whose aisle is still being found, on every client. Which items show is decided by the reasons switched off (`hidden` in the API; the rule is `isShown` in `lib/shopping.ts`, mirrored in `apple/Shared/Reasons.swift`).
+- Supplements (`lib/supplements.ts`) are not foods: they sit outside meals and slots, and the ones being taken reach totals as a fixed daily amount (`fixed` in the solver's model, the last argument of `daySpread`). A powder already eaten as a meal stays a food, or it would count twice.
 - Colours come from the app icon's fire plate (oxblood, cream, brass, vermilion), defined once in `app/globals.css` and mirrored in `apple/Shared/Theme.swift`. Checkboxes are square.
 
 - Tests: `npm test` (node's built-in runner over `lib/*.test.ts`). Each test opens its own database file under `data/`, never `data/cauldron.db`.

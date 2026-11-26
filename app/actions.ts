@@ -16,6 +16,7 @@ import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "
 import { cleanAisle, clearDone, getHidden, parseChange, removeItem, setHidden, updateItem, type ItemChange } from "../lib/shopping.ts";
 import { addAndLookUp } from "../lib/aisles.ts";
 import { parseRecipe, saveRecipe } from "../lib/recipes.ts";
+import { parseSupplement, removeSupplement, saveSupplement } from "../lib/supplements.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -419,4 +420,23 @@ export async function saveRecipeForm(id: number, f: FormData) {
   }
   refresh();
   redirect(`/meals/${id}`);
+}
+
+// The Supplements page form. A nutrient left empty adds nothing.
+export async function saveSupplementForm(id: number | null, f: FormData) {
+  const nutrients = Object.fromEntries(NUTRIENTS.flatMap((n) => (str(f, `n:${n.key}`) === "" ? [] : [[n.key, Number(f.get(`n:${n.key}`))]])));
+  const supplement = parseSupplement({ name: str(f, "name"), product: str(f, "product"), amount: str(f, "amount"), time: str(f, "time"), note: str(f, "note"), status: str(f, "status"), nutrients });
+  let error = "error" in supplement ? supplement.error : null;
+  if (!("error" in supplement)) {
+    try { saveSupplement(supplement, id ?? undefined); } catch (e) { error = (e as Error).message; }
+  }
+  refresh();
+  const back = new URLSearchParams({ ...(error && id !== null ? { edit: String(id) } : {}), ...(error ? { error } : {}) });
+  redirect(`/supplements${back.size ? `?${back}` : ""}`);
+}
+
+export async function deleteSupplement(id: number) {
+  removeSupplement(id);
+  refresh();
+  redirect("/supplements");
 }

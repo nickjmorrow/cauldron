@@ -1,6 +1,6 @@
 import { chosenOptions, partKey } from "./chosen.ts";
 import { dayTotals } from "./compute.ts";
-import type { NutrientKey } from "./nutrients.ts";
+import type { NutrientKey, Nutrients } from "./nutrients.ts";
 import type { Slot } from "./queries.ts";
 
 export const BINS = 10;
@@ -56,7 +56,8 @@ function choices(sizes: number[], max: number): { digits: number[][]; combos: nu
 }
 
 // How much each nutrient can vary across the day's variations, counting every combination of meals equally.
-export function daySpread(slots: Slot[], keys: NutrientKey[], max = MAX_COMBOS): DaySpread {
+// fixed is what every day gets whatever is eaten (supplements): it lifts every combination by the same amount.
+export function daySpread(slots: Slot[], keys: NutrientKey[], max = MAX_COMBOS, fixed: Nutrients = {}): DaySpread {
   const parts = slots.flatMap((slot) => slot.parts.filter((p) => p.options.length > 1).map((p): PartInfo => ({
     slotName: slot.name,
     key: partKey(slot.id, p.part),
@@ -64,7 +65,7 @@ export function daySpread(slots: Slot[], keys: NutrientKey[], max = MAX_COMBOS):
     options: p.options.map((o) => ({ id: o.optionId, name: o.meal.name })),
   })));
   const { digits, combos, sampled } = choices(parts.map((p) => p.options.length), max);
-  const totals = digits.map((d) => dayTotals(chosenOptions(slots, Object.fromEntries(parts.map((p, j) => [p.key, p.options[d[j]].id]))).map(({ option }) => option.meal.totals)));
+  const totals = digits.map((d) => dayTotals([fixed, ...chosenOptions(slots, Object.fromEntries(parts.map((p, j) => [p.key, p.options[d[j]].id]))).map(({ option }) => option.meal.totals)]));
 
   const nutrients = {} as Record<NutrientKey, NutrientSpread>;
   for (const key of keys) {

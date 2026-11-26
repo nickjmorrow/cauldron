@@ -10,6 +10,7 @@ import { VersionToggles } from "./version-toggles.tsx";
 import { FitBar } from "./fix-links.tsx";
 import { LikesPanel } from "./likes-panel.tsx";
 import { listLikes } from "../../../lib/likes.ts";
+import { supplementTotals } from "../../../lib/supplements.ts";
 
 type Query = { goal?: string; view?: string; notice?: string; error?: string };
 
@@ -36,7 +37,7 @@ export default async function DayPage({ params, searchParams }: { params: Promis
         {message && <p className={`notice-line${query.error ? " error" : ""}`} role="status">{message}</p>}
         <div className="split">
           <BaseSlots slots={day.slots} mealOptions={mealOptions} />
-          <SpreadTable slots={day.slots} />
+          <SpreadTable slots={day.slots} supplements={supplementTotals()} />
         </div>
         <LikesPanel slots={day.slots} likes={listLikes()} foodOptions={likeOptions} />
       </>
@@ -74,7 +75,7 @@ export default async function DayPage({ params, searchParams }: { params: Promis
       <FitBar want={want} />
       <div className="split">
         <VersionSlots base={day.slots} resolved={version?.slots ?? day.slots} adjustments={version?.adjustments ?? []} want={want} foodOptions={foodOptions} />
-        <SpreadTable slots={version?.slots ?? day.slots} targets={targets} />
+        <SpreadTable slots={version?.slots ?? day.slots} targets={targets} supplements={supplementTotals()} />
       </div>
     </>
   );

@@ -80,3 +80,13 @@ test("the standout is the one variation furthest from its meal's other variation
   assert.deepEqual(standout(s), { name: "Pancakes", slotName: "Breakfast", delta: 490 }); // 900 against the average of 400 and 420
   assert.equal(standout(daySpread([day[0]], ["calories"]).nutrients.calories), undefined, "no variations, nothing stands out");
 });
+
+test("a fixed daily amount lifts every combination and leaves the swing alone", () => {
+  const plain = daySpread(day, ["calories", "zinc"]).nutrients;
+  const lifted = daySpread(day, ["calories", "zinc"], undefined, { calories: 25, zinc: 15 }).nutrients;
+  assert.equal(lifted.calories.min, plain.calories.min + 25);
+  assert.equal(lifted.calories.max, plain.calories.max + 25);
+  assert.equal(lifted.calories.mean, plain.calories.mean + 25);
+  assert.deepEqual([lifted.zinc.min, lifted.zinc.max], [15, 15], "a nutrient no meal has still shows");
+  assert.deepEqual(standout(lifted.calories), standout(plain.calories));
+});

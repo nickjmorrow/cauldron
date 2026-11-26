@@ -90,6 +90,14 @@ test("an already good day comes back unchanged", () => {
   assert.deepEqual(r.adjustments, []);
 });
 
+test("what a day gets whatever is eaten counts toward totals, so a target it already meets is not chased", () => {
+  const fiber = goal({ key: "fiber", target: 28, type: "at_least" });
+  assert.notDeepEqual(solve(input({ pool: [bean], goals: [fiber] })).adjustments, []);
+  const covered = solve(input({ pool: [bean], goals: [fiber], fixed: { fiber: 10 } }));
+  assert.deepEqual(covered.adjustments, []);
+  assert.equal(covered.before.fiber, 29); // 19 from food and 10 from the fixed amount
+});
+
 test("totalsOf agrees with the page's typical day for a resolved version", () => {
   const meal = (id: number, nutrients: Record<string, number>) => ({ id, name: `m${id}`, totals: nutrients, items: [], status: "approved" }) as never;
   const slots: Slot[] = [
