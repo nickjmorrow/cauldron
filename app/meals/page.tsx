@@ -4,7 +4,7 @@ import { countByUse, UseFilterToggle } from "../in-use-toggle.tsx";
 import { UseTag } from "../flags.tsx";
 import { parseUseFilter, useOf } from "../../lib/usage.ts";
 import { createMeal } from "../actions.ts";
-import { groupBySwaps, mealSlots, nextMealSort, parseMealSort, sortMeals, firstDir, swapGroups, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
+import { describeParts, mealSlots, mealsBySlot, nextMealSort, parseMealSort, sortMeals, firstDir, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
 
 const COLUMNS: { key: MealSortKey; label: string; numeric?: boolean }[] = [
   { key: "name", label: "Meal" }, { key: "slot", label: "Usually" },
@@ -25,8 +25,9 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   const slots = mealSlots(inFilter);
   const slot = slots.includes(params.slot ?? "") ? params.slot : undefined;
   const meals = sortMeals(slot ? inFilter.filter((m) => m.typical_slot === slot) : inFilter, sort);
-  // Meals that are swaps for each other in the day (the meats, the sauces) sit together; the sort orders each group.
-  const groups = groupBySwaps(meals, swapGroups(onlyDay.slots));
+  // Laid out the way the day is built: its slots, each slot's parts, each part's swaps. The sort orders the swaps.
+  const sections = mealsBySlot(meals, onlyDay.slots);
+  const headed = sections.some((s) => s.slot !== null);
   // Every link keeps the other choices; defaults stay out of the address.
   const href = (to: { show?: typeof filter; slot?: string; sort?: MealSort }) => {
     const query = new URLSearchParams();
@@ -64,17 +65,30 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
             })}
           </tr></thead>
           <tbody>
-            {groups.map((group, g) => [
-              g > 0 && <tr key={`gap-${g}`} className="gap" aria-hidden="true"><td colSpan={COLUMNS.length} /></tr>,
-              ...group.map((m) => (
-                <tr key={m.id} className={m.status}>
-                  <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
-                    {m.status === "proposed" && <span className="badge proposed">proposed</span>}
-                    {filter === "all" && <UseTag use={use(m)} />}</td>
-                  <td className="muted">{m.typical_slot}</td>
-                  {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{m.items.length === 0 ? "–" : Math.round(m.totals[k] ?? 0)}</td>)}
+            {sections.map((section) => [
+              headed && (
+                <tr key={`slot-${section.slot}`} className="group">
+                  <th colSpan={COLUMNS.length}>{section.slot ?? (filter === "day" ? "Also in the day" : "Other meals")}
+                    {section.slot !== null && describeParts(section.parts) && ` · ${describeParts(section.parts)}`}</th>
                 </tr>
-              )),
+              ),
+              ...section.parts.flatMap((part, p) => [
+                // Several parts are eaten together (+); several meals in a part are swaps for each other.
+                section.parts.length > 1 && (p > 0 || part.length > 1) && (
+                  <tr key={`part-${section.slot}-${p}`} className="part">
+                    <td colSpan={COLUMNS.length}>{[p > 0 && "+", part.length > 1 && `one of ${part.length}`].filter(Boolean).join(" ")}</td>
+                  </tr>
+                ),
+                ...part.map((m) => (
+                  <tr key={m.id} className={m.status}>
+                    <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
+                      {m.status === "proposed" && <span className="badge proposed">proposed</span>}
+                      {filter === "all" && <UseTag use={use(m)} />}</td>
+                    <td className="muted">{m.typical_slot}</td>
+                    {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{m.items.length === 0 ? "–" : Math.round(m.totals[k] ?? 0)}</td>)}
+                  </tr>
+                )),
+              ]),
             ])}
           </tbody>
         </table>

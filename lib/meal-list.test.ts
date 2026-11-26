@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { groupBySwaps, mealSlots, nextMealSort, parseMealSort, sortMeals, swapGroups } from "./meal-list.ts";
+import { describeParts, mealSlots, mealsBySlot, nextMealSort, parseMealSort, sortMeals } from "./meal-list.ts";
 
 const meals = [
   { name: "Oats", typical_slot: "Breakfast", totals: { calories: 400, protein: 20 } },
@@ -43,17 +43,31 @@ test("meal times keep the order of a day, then anything else A to Z", () => {
   assert.deepEqual(mealSlots(slots), ["Breakfast", "Lunch", "Dinner", "Baking", "Snack"]);
 });
 
-test("swaps are the parts of the day with two or more meals to pick from", () => {
-  const part = (...ids: number[]) => ({ options: ids.map((id) => ({ meal: { id } })) });
-  assert.deepEqual(swapGroups([{ parts: [part(1), part(2, 3)] }, { parts: [part(4, 5, 6)] }]), [[2, 3], [4, 5, 6]]);
+const part = (...ids: number[]) => ({ options: ids.map((id) => ({ meal: { id } })) });
+const DAY = [
+  { name: "Breakfast", parts: [part(1), part(2, 3)] },
+  { name: "Lunch", parts: [part(4, 5)] },
+  { name: "Dinner", parts: [part(8, 6), part(7, 9)] },
+];
+const shape = (sections: { slot: string | null; parts: { id: number }[][] }[]) => sections.map((s) => [s.slot, s.parts.map((p) => p.map((m) => m.id))]);
+
+test("meals are laid out by the day's slots and their parts, rows in the order given, the rest last", () => {
+  const listed = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((id) => ({ id }));
+  assert.deepEqual(shape(mealsBySlot(listed, DAY)), [
+    ["Breakfast", [[1], [2, 3]]], ["Lunch", [[4, 5]]], ["Dinner", [[6, 8], [7, 9]]], [null, [[10, 11]]],
+  ]);
+  assert.deepEqual(shape(mealsBySlot(listed.slice(0, 5), DAY)), [["Breakfast", [[1], [2, 3]]], ["Lunch", [[4, 5]]]]);
 });
 
-test("swap groups stay together in the day's order, rows keep their order, the rest comes last", () => {
-  const listed = [1, 2, 3, 4, 5, 6, 7].map((id) => ({ id }));
-  const ids = (groups: { id: number }[][]) => groups.map((g) => g.map((m) => m.id));
-  assert.deepEqual(ids(groupBySwaps(listed, [[6, 2], [5, 3, 1]])), [[2, 6], [1, 3, 5], [4, 7]]);
-  assert.deepEqual(ids(groupBySwaps(listed, [])), [[1, 2, 3, 4, 5, 6, 7]]);
-  // One meal of a group left (the others filtered out) is not a group; a meal in two groups goes with the first.
-  assert.deepEqual(ids(groupBySwaps(listed.slice(0, 4), [[1, 9], [2, 3], [3, 4]])), [[2, 3], [1, 4]]);
-  assert.deepEqual(ids(groupBySwaps(listed.slice(0, 2), [[1, 2]])), [[1, 2]]);
+test("parts and slots with nothing to show are left out; a meal in two parts goes with the first", () => {
+  const listed = [3, 9, 12].map((id) => ({ id }));
+  assert.deepEqual(shape(mealsBySlot(listed, [...DAY, { name: "Snack", parts: [part(9, 3)] }])), [["Breakfast", [[3]]], ["Dinner", [[9]]], [null, [[12]]]]);
+  assert.deepEqual(shape(mealsBySlot(listed, [])), [[null, [[3, 9, 12]]]]);
+  assert.deepEqual(mealsBySlot([], DAY), []);
+});
+
+test("a slot's heading says how it's put together", () => {
+  assert.equal(describeParts([[1, 2, 3]]), "one of 3");
+  assert.equal(describeParts([[1], [2, 3]]), "2 parts eaten together");
+  assert.equal(describeParts([[1]]), "");
 });

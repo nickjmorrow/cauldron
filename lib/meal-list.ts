@@ -45,22 +45,30 @@ export function mealSlots(meals: { typical_slot: string }[]): string[] {
   return [...new Set(meals.map((m) => m.typical_slot).filter(Boolean))].sort(compareSlots);
 }
 
-// The day's swaps: the meals of each part of a slot that has two or more to pick from, in the day's order.
-export function swapGroups(slots: { parts: { options: { meal: { id: number } }[] }[] }[]): number[][] {
-  return slots.flatMap((s) => s.parts.map((p) => p.options.map((o) => o.meal.id))).filter((ids) => ids.length > 1);
-}
-
-// Listed meals with each swap group kept together (groups in the day's order), then one last group of everything else.
-// Rows keep the order they came in. A swap group with a single meal left to show isn't a group; a meal in two goes with the first.
-export function groupBySwaps<T extends { id: number }>(meals: T[], swaps: number[][]): T[][] {
+// The listed meals laid out the way the day is built: a section per slot of the day, holding its parts (the things
+// eaten together), each part holding its swaps. Meals in no slot make one last section with no slot name.
+// Rows keep the order they came in; a part or slot with nothing to show is left out; a meal in two parts goes with the first.
+export type MealSection<T> = { slot: string | null; parts: T[][] };
+type DaySlot = { name: string; parts: { options: { meal: { id: number } }[] }[] };
+export function mealsBySlot<T extends { id: number }>(meals: T[], slots: DaySlot[]): MealSection<T>[] {
   const placed = new Set<number>();
-  const groups: T[][] = [];
-  for (const ids of swaps) {
-    const group = meals.filter((m) => ids.includes(m.id) && !placed.has(m.id));
-    if (group.length < 2) continue;
-    for (const m of group) placed.add(m.id);
-    groups.push(group);
+  const sections: MealSection<T>[] = [];
+  for (const slot of slots) {
+    const parts: T[][] = [];
+    for (const part of slot.parts) {
+      const ids = new Set(part.options.map((o) => o.meal.id));
+      const shown = meals.filter((m) => ids.has(m.id) && !placed.has(m.id));
+      for (const m of shown) placed.add(m.id);
+      if (shown.length > 0) parts.push(shown);
+    }
+    if (parts.length > 0) sections.push({ slot: slot.name, parts });
   }
   const rest = meals.filter((m) => !placed.has(m.id));
-  return rest.length ? [...groups, rest] : groups;
+  return rest.length > 0 ? [...sections, { slot: null, parts: [rest] }] : sections;
+}
+
+// How a slot is put together, for its heading: "one of 3" for a single part with swaps, "4 parts eaten together" for several.
+export function describeParts(parts: unknown[][]): string {
+  if (parts.length > 1) return `${parts.length} parts eaten together`;
+  return parts[0].length > 1 ? `one of ${parts[0].length}` : "";
 }
