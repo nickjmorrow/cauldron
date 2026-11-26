@@ -17,6 +17,7 @@ import { cleanAisle, clearDone, getHidden, parseChange, removeItem, setHidden, u
 import { addAndLookUp } from "../lib/aisles.ts";
 import { parseRecipe, saveRecipe } from "../lib/recipes.ts";
 import { parseSupplement, removeSupplement, saveSupplement } from "../lib/supplements.ts";
+import { eatenPerWeek, parsePrep, removePrep, savePrep, suggestEvery } from "../lib/prep.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
 
 const TABLES = { ingredient: "ingredients", meal: "meals", version: "day_versions" } as const;
@@ -439,4 +440,26 @@ export async function deleteSupplement(id: number) {
   removeSupplement(id);
   refresh();
   redirect("/supplements");
+}
+
+// The Prep page form. A cadence left empty takes what the numbers give, which needs the meal to be in the day.
+export async function savePrepForm(f: FormData) {
+  const meal = int(f, "meal");
+  const makes = Number(f.get("makes")), keepsDays = str(f, "keepsDays") === "" ? 0 : Number(f.get("keepsDays"));
+  const everyDays = str(f, "everyDays") === "" ? suggestEvery(makes, eatenPerWeek().get(meal) ?? 0) : Number(f.get("everyDays"));
+  const prep = everyDays === null
+    ? { error: "This meal isn't in the day, so there are no numbers to work a cadence from. Say how often you make it." }
+    : parsePrep({ task: str(f, "task"), makes, keepsDays, everyDays });
+  let error = "error" in prep ? prep.error : null;
+  if (!("error" in prep)) {
+    try { savePrep(meal, prep); } catch (e) { error = (e as Error).message; }
+  }
+  refresh();
+  redirect(error ? `/prep?${new URLSearchParams({ error })}` : "/prep");
+}
+
+export async function removePrepAction(mealId: number) {
+  removePrep(mealId);
+  refresh();
+  redirect("/prep");
 }

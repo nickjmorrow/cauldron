@@ -201,6 +201,15 @@ CREATE TABLE IF NOT EXISTS supplements (
   status TEXT NOT NULL DEFAULT 'taking' CHECK (status IN ('taking','sometimes','stopped')),
   nutrients TEXT NOT NULL DEFAULT '{}'
 );
+-- What's made ahead for a meal and how often (lib/prep.ts). makes is servings in a batch, keeps_days how long a
+-- batch stays good (0 = not known), every_days how often it's made.
+CREATE TABLE IF NOT EXISTS meal_prep (
+  meal_id INTEGER PRIMARY KEY REFERENCES meals(id) ON DELETE CASCADE,
+  task TEXT NOT NULL,
+  makes REAL NOT NULL,
+  keeps_days INTEGER NOT NULL DEFAULT 0,
+  every_days INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS usda_cache (
   key TEXT PRIMARY KEY,
   body TEXT NOT NULL
