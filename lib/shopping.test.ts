@@ -218,11 +218,11 @@ test("reasons on the list come first A to Z, then ones used before; a new reason
 test("an item added with no reason is for the typical recipes that use it; a given reason wins", () => {
   const db = getDb();
   const id = (sql: string, ...args: (string | number)[]) => Number(db.prepare(sql).run(...args).lastInsertRowid);
-  const soup = id("INSERT INTO meals (name, status) VALUES ('Leek soup & bread', 'approved')");
+  const soup = id("INSERT INTO meals (name, status) VALUES ('Leek soup', 'approved')");
   const day = id("INSERT INTO days (name, position) VALUES ('Standard day', 1)");
   const slot = id("INSERT INTO day_slots (day_id, name, position) VALUES (?, 'Lunch', 1)", day);
   db.prepare("INSERT INTO slot_options (slot_id, meal_id, is_planned) VALUES (?, ?, 1)").run(slot, soup);
-  saveRecipe({ ...(parseRecipe({ name: "Leek soup", ingredients: [{ text: "3 leeks, sliced", buy: "leeks" }] }) as RecipeInput), meals: ["Leek soup & bread"] });
+  saveRecipe({ ...(parseRecipe({ name: "Leek soup", ingredients: [{ text: "3 leeks, sliced", buy: "leeks" }] }) as RecipeInput) });
 
   assert.deepEqual(addItem({ name: "Leeks" }).meals, ["Leek soup"]);
   assert.deepEqual(addItem({ name: "Leeks", meals: ["Party"] }).meals, ["Party"]);

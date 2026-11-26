@@ -537,9 +537,7 @@ button.shop-meals:hover { border-color: var(--sun); }
 .recipe-edit textarea { font: inherit; line-height: 1.45; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); resize: vertical; }
 .recipe-edit td { padding: 3px 4px; }
 .recipe-edit-section { display: grid; gap: 6px; }
-.recipe-meals { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 16px; }
 .recipe-edit-bar { position: sticky; bottom: 0; padding: 12px 0; background: var(--bg); border-top: 1px solid var(--line); }
-.recipe-delete { margin-top: 18px; }
 a.button { display: inline-flex; align-items: center; min-height: 34px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--fg); text-decoration: none; }
 a.button:hover { background: var(--raised); border-color: var(--muted); }
 p.error { color: var(--bad); }

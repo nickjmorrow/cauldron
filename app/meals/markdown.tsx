@@ -1,10 +1,10 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-type Links = Map<string, number>; // lower-cased recipe name -> id, for [[name]] links
+type Links = Map<string, number>; // lower-cased meal name -> id, for [[name]] links
 type Node = { text: string; children: Node[] };
 
-// **bold**, [text](https://...) and [[recipe name]]; everything else is shown as written.
+// **bold**, [text](https://...) and [[meal name]]; everything else is shown as written.
 function inline(text: string, links: Links): ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*|\[\[[^\]]+\]\]|\[[^\]]+\]\(https?:\/\/[^)\s]+\))/g);
   return parts.map((part, i) => {
@@ -12,7 +12,7 @@ function inline(text: string, links: Links): ReactNode[] {
     if (part.startsWith("[[")) {
       const name = part.slice(2, -2);
       const id = links.get(name.toLowerCase());
-      return id ? <Link key={i} href={`/recipes/${id}`}>{name}</Link> : <span key={i}>{name}</span>;
+      return id ? <Link key={i} href={`/meals/${id}`}>{name}</Link> : <span key={i}>{name}</span>;
     }
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (link) return <a key={i} href={link[2]} target="_blank" rel="noreferrer">{link[1]}</a>;
@@ -55,7 +55,7 @@ function List({ nodes, links }: { nodes: Node[]; links: Links }) {
   );
 }
 
-/** A recipe section's body: nested bullets with bold, links and links to other recipes. */
+/** A recipe section's body: nested bullets with bold, links and links to other meals. */
 export function Markdown({ body, links }: { body: string; links: Links }) {
   const nodes = tree(body);
   return nodes.length > 0 ? <div className="md"><List nodes={nodes} links={links} /></div> : null;

@@ -1,4 +1,5 @@
-// JSON API for recipes. GET lists them; POST saves a whole recipe (replacing the one of the same name, if any).
+// JSON API for recipes: how meals are cooked. GET lists the meals that have one; POST saves a whole recipe onto the
+// meal of that name (replacing the recipe it had), or adds a new occasional meal for it.
 import { listRecipes, parseRecipe, saveRecipe } from "../../../lib/recipes.ts";
 
 export async function GET() {

@@ -41,7 +41,7 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   return (
     <>
       <h1>Meals</h1>
-      <p className="lede">A meal is a list of ingredients with quantities. The typical day picks from these; mark the ones you cook now and then (cookies, a stew) as occasional on the meal's page.</p>
+      <p className="lede">A meal is a list of ingredients with quantities, and how it's cooked. The typical day picks from these; mark the ones you cook now and then (cookies, a stew) as occasional on the meal's page.</p>
       <div className="row" style={{ marginBottom: 14 }}>
         <UseFilterToggle current={filter} counts={countByUse(everything, use)} href={(f) => href({ show: f, slot })} />
       </div>
@@ -72,7 +72,7 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
                     {m.status === "proposed" && <span className="badge proposed">proposed</span>}
                     {filter === "all" && <UseTag use={use(m)} />}</td>
                   <td className="muted">{m.typical_slot}</td>
-                  {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{Math.round(m.totals[k] ?? 0)}</td>)}
+                  {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{m.items.length === 0 ? "–" : Math.round(m.totals[k] ?? 0)}</td>)}
                 </tr>
               )),
             ])}

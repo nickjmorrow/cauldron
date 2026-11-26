@@ -15,7 +15,7 @@ struct Item: Codable, Identifiable, Hashable {
     var photo: String? = nil
     /// The server is looking up which aisle it's in at the store. Optional (like meals) so older saved lists still load.
     var looking: Bool? = nil
-    /// What it's bought for: meals, recipes or any other reason.
+    /// What it's bought for: meals or any other reason.
     var meals: [String]? = nil
 
     var isLooking: Bool { looking ?? false }

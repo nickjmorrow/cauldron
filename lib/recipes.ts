@@ -1,7 +1,8 @@
-// Recipes: the things that get cooked and shopped for. A recipe has a list of ingredients (each line as written, plus
-// what to buy for it), free-text sections (instructions, log, storage...) and the meals it belongs to. Meals carry the
-// nutrition; a recipe never feeds totals. A recipe is typical when one of its meals is in the typical day, and typical
-// recipes are what a shopping item is "for" when it's added without a reason.
+// Recipes: how a meal is cooked and shopped for. A recipe is the cooking half of a meal (its id and name are the
+// meal's): a list of ingredients (each line as written, plus what to buy for it) and free-text sections (instructions,
+// log, storage...). The meal's counted ingredients carry the nutrition; a recipe never feeds totals. A recipe is
+// typical when its meal is in the typical day, and typical recipes are what a shopping item is "for" when it's added
+// without a reason.
 import { getDb } from "./db.ts";
 import { getOnlyDay, inUse } from "./queries.ts";
 
@@ -14,10 +15,10 @@ export type RecipeIngredient = { group: string; text: string; buy: string };
 export type RecipeSection = { title: string; body: string };
 export type RecipeInput = {
   name: string; summary: string; serves: string; activeTime: string; totalTime: string; tags: string[];
-  ingredients: RecipeIngredient[]; sections: RecipeSection[]; meals: string[]; // meals by name
+  ingredients: RecipeIngredient[]; sections: RecipeSection[];
 };
 export type Recipe = RecipeInput & { id: number; typical: boolean };
-export type RecipeRow = { id: number; name: string; summary: string; tags: string[]; typical: boolean; meals: string[] };
+export type RecipeRow = { id: number; name: string; summary: string; tags: string[]; typical: boolean };
 
 const MAX_FILLED = 3;
 const MAX_NAME = 200;
@@ -41,7 +42,7 @@ export function parseRecipe(input: unknown): RecipeInput | { error: string } {
   const name = text(input.name);
   if (!name) return { error: "A recipe needs a name." };
   if (name.length > MAX_NAME) return { error: `name is longer than ${MAX_NAME} characters.` };
-  const recipe: RecipeInput = { name, summary: "", serves: "", activeTime: "", totalTime: "", tags: [], ingredients: [], sections: [], meals: [] };
+  const recipe: RecipeInput = { name, summary: "", serves: "", activeTime: "", totalTime: "", tags: [], ingredients: [], sections: [] };
   for (const field of HEAD_FIELDS) {
     if (input[field] === undefined) continue;
     const value = text(input[field]);
@@ -49,13 +50,10 @@ export function parseRecipe(input: unknown): RecipeInput | { error: string } {
     if (value.length > MAX_LINE) return { error: `${field} is longer than ${MAX_LINE} characters.` };
     recipe[field] = value;
   }
-  for (const field of ["tags", "meals"] as const) {
-    if (input[field] === undefined) continue;
-    const list = input[field];
-    if (!Array.isArray(list) || list.some((x) => typeof x !== "string")) {
-      return { error: field === "tags" ? "tags must be a list of words." : "meals must be a list of meal names." };
-    }
-    recipe[field] = [...new Set((list as string[]).map((x) => x.trim()).filter(Boolean))];
+  if (input.tags !== undefined) {
+    const list = input.tags;
+    if (!Array.isArray(list) || list.some((x) => typeof x !== "string")) return { error: "tags must be a list of words." };
+    recipe.tags = [...new Set((list as string[]).map((x) => x.trim()).filter(Boolean))];
   }
   const rows = (field: "ingredients" | "sections") => {
     const list = input[field] ?? [];
@@ -83,32 +81,32 @@ export function parseRecipe(input: unknown): RecipeInput | { error: string } {
   return recipe;
 }
 
-function typicalRecipeIds(): Set<number> {
-  const meals = inUse(getOnlyDay()).meals;
-  const rows = getDb().prepare("SELECT recipe_id, meal_id FROM meal_recipes").all() as { recipe_id: number; meal_id: number }[];
-  return new Set(rows.filter((r) => meals.has(r.meal_id)).map((r) => r.recipe_id));
-}
+const typicalMealIds = () => inUse(getOnlyDay()).meals;
 
-const mealNames = (id: number) =>
-  (getDb().prepare("SELECT m.name FROM meal_recipes mr JOIN meals m ON m.id = mr.meal_id WHERE mr.recipe_id = ? ORDER BY m.name COLLATE NOCASE").all(id) as { name: string }[]).map((r) => r.name);
+type MealRow = { id: number; name: string; summary: string; serves: string; active_time: string; total_time: string; tags: string };
 
 export function getRecipe(id: number): Recipe | undefined {
   const db = getDb();
-  const row = db.prepare("SELECT * FROM recipes WHERE id = ?").get(id) as
-    { id: number; name: string; summary: string; serves: string; active_time: string; total_time: string; tags: string } | undefined;
+  const row = db.prepare("SELECT id, name, summary, serves, active_time, total_time, tags FROM meals WHERE id = ?").get(id) as MealRow | undefined;
   if (!row) return undefined;
-  const ingredients = db.prepare("SELECT group_name AS \"group\", text, buy FROM recipe_ingredients WHERE recipe_id = ? ORDER BY position").all(id) as unknown as RecipeIngredient[];
-  const sections = db.prepare("SELECT title, body FROM recipe_sections WHERE recipe_id = ? ORDER BY position").all(id) as unknown as RecipeSection[];
+  const ingredients = db.prepare("SELECT group_name AS \"group\", text, buy FROM meal_lines WHERE meal_id = ? ORDER BY position").all(id) as unknown as RecipeIngredient[];
+  const sections = db.prepare("SELECT title, body FROM meal_sections WHERE meal_id = ? ORDER BY position").all(id) as unknown as RecipeSection[];
   return {
     id: row.id, name: row.name, summary: row.summary, serves: row.serves, activeTime: row.active_time, totalTime: row.total_time,
     tags: JSON.parse(row.tags) as string[], ingredients: ingredients.map((i) => ({ ...i })), sections: sections.map((s) => ({ ...s })),
-    meals: mealNames(id), typical: typicalRecipeIds().has(id),
+    typical: typicalMealIds().has(id),
   };
 }
 
 export function findRecipe(name: string): Recipe | undefined {
-  const row = getDb().prepare("SELECT id FROM recipes WHERE name = ? COLLATE NOCASE").get(name.trim()) as { id: number } | undefined;
+  const row = getDb().prepare("SELECT id FROM meals WHERE name = ? COLLATE NOCASE").get(name.trim()) as { id: number } | undefined;
   return row && getRecipe(row.id);
+}
+
+// Nothing written about how the meal is cooked yet.
+export function isBlank(recipe: RecipeInput): boolean {
+  return !recipe.summary && !recipe.serves && !recipe.activeTime && !recipe.totalTime && recipe.tags.length === 0
+    && recipe.ingredients.length === 0 && recipe.sections.length === 0;
 }
 
 // The recipe as it would be sent in: what the API returns for editing and what an import file holds.
@@ -117,64 +115,55 @@ export function exportRecipe(recipe: Recipe): RecipeInput {
   return input;
 }
 
+// The meals that say how they're cooked; a meal that is only a list of counted ingredients (a shake, a bar) isn't a recipe.
 export function listRecipes(): RecipeRow[] {
-  const typical = typicalRecipeIds();
-  const rows = getDb().prepare("SELECT id, name, summary, tags FROM recipes ORDER BY name COLLATE NOCASE").all() as { id: number; name: string; summary: string; tags: string }[];
-  return rows.map((r) => ({ id: r.id, name: r.name, summary: r.summary, tags: JSON.parse(r.tags) as string[], typical: typical.has(r.id), meals: mealNames(r.id) }));
+  const typical = typicalMealIds();
+  const rows = getDb().prepare(`SELECT id, name, summary, tags FROM meals m
+    WHERE summary != '' OR serves != '' OR active_time != '' OR total_time != '' OR tags != '[]'
+      OR EXISTS (SELECT 1 FROM meal_lines WHERE meal_id = m.id) OR EXISTS (SELECT 1 FROM meal_sections WHERE meal_id = m.id)
+    ORDER BY name COLLATE NOCASE`).all() as { id: number; name: string; summary: string; tags: string }[];
+  return rows.map((r) => ({ id: r.id, name: r.name, summary: r.summary, tags: JSON.parse(r.tags) as string[], typical: typical.has(r.id) }));
 }
 
-// Saves a whole recipe. With an id it replaces that recipe (and may rename it); without one it replaces the recipe of
-// the same name, or adds a new one. Meals are linked by name; names that match no meal are returned, not linked.
-export function saveRecipe(input: RecipeInput, id?: number): { recipe: Recipe; unknownMeals: string[] } {
+// Saves a whole recipe. With an id it replaces that meal's recipe (and may rename the meal); without one it replaces
+// the recipe of the meal with that name, or adds a new meal, marked occasional: cooked now and then, in no day yet.
+export function saveRecipe(input: RecipeInput, id?: number): { recipe: Recipe } {
   const db = getDb();
-  const sameName = db.prepare("SELECT id FROM recipes WHERE name = ? COLLATE NOCASE").get(input.name) as { id: number } | undefined;
-  if (id !== undefined && sameName && sameName.id !== id) throw new Error(`There is already a recipe called ${input.name}.`);
-  const unknownMeals: string[] = [];
+  const sameName = db.prepare("SELECT id FROM meals WHERE name = ? COLLATE NOCASE").get(input.name) as { id: number } | undefined;
+  if (id !== undefined && sameName && sameName.id !== id) throw new Error(`There is already a meal called ${input.name}.`);
   db.exec("BEGIN");
   try {
     let target = id ?? sameName?.id;
-    const head = [input.name, input.summary, input.serves, input.activeTime, input.totalTime, JSON.stringify(input.tags)];
+    const head = [input.summary, input.serves, input.activeTime, input.totalTime, JSON.stringify(input.tags)];
     if (target === undefined) {
-      target = Number(db.prepare("INSERT INTO recipes (name, summary, serves, active_time, total_time, tags) VALUES (?, ?, ?, ?, ?, ?)").run(...head).lastInsertRowid);
+      target = Number(db.prepare("INSERT INTO meals (name, status, occasional, summary, serves, active_time, total_time, tags) VALUES (?, 'approved', 1, ?, ?, ?, ?, ?)").run(input.name, ...head).lastInsertRowid);
     } else {
-      const changed = db.prepare("UPDATE recipes SET name = ?, summary = ?, serves = ?, active_time = ?, total_time = ?, tags = ? WHERE id = ?").run(...head, target).changes;
-      if (changed === 0) throw new Error("No recipe with that id.");
-      for (const t of ["recipe_ingredients", "recipe_sections", "meal_recipes"]) db.prepare(`DELETE FROM ${t} WHERE recipe_id = ?`).run(target);
+      // Saved by name, the meal keeps the name it has (the match ignores case); only a save by id renames it.
+      const name = id === undefined ? null : input.name;
+      const changed = db.prepare("UPDATE meals SET name = COALESCE(?, name), summary = ?, serves = ?, active_time = ?, total_time = ?, tags = ? WHERE id = ?").run(name, ...head, target).changes;
+      if (changed === 0) throw new Error("No meal with that id.");
+      for (const t of ["meal_lines", "meal_sections"]) db.prepare(`DELETE FROM ${t} WHERE meal_id = ?`).run(target);
     }
     input.ingredients.forEach((i, position) =>
-      db.prepare("INSERT INTO recipe_ingredients (recipe_id, position, group_name, text, buy) VALUES (?, ?, ?, ?, ?)").run(target!, position, i.group, i.text, i.buy));
+      db.prepare("INSERT INTO meal_lines (meal_id, position, group_name, text, buy) VALUES (?, ?, ?, ?, ?)").run(target!, position, i.group, i.text, i.buy));
     input.sections.forEach((s, position) =>
-      db.prepare("INSERT INTO recipe_sections (recipe_id, position, title, body) VALUES (?, ?, ?, ?)").run(target!, position, s.title, s.body));
-    for (const name of input.meals) {
-      const meal = db.prepare("SELECT id FROM meals WHERE name = ? COLLATE NOCASE").get(name) as { id: number } | undefined;
-      if (!meal) { unknownMeals.push(name); continue; }
-      db.prepare("INSERT OR IGNORE INTO meal_recipes (meal_id, recipe_id) VALUES (?, ?)").run(meal.id, target);
-    }
+      db.prepare("INSERT INTO meal_sections (meal_id, position, title, body) VALUES (?, ?, ?, ?)").run(target!, position, s.title, s.body));
     db.exec("COMMIT");
-    return { recipe: getRecipe(target)!, unknownMeals };
+    return { recipe: getRecipe(target)! };
   } catch (e) {
     db.exec("ROLLBACK");
     throw e;
   }
 }
 
-export function deleteRecipe(id: number): boolean {
-  return getDb().prepare("DELETE FROM recipes WHERE id = ?").run(id).changes > 0;
-}
-
-// The recipes a meal belongs to, for the meal's page.
-export function recipesOfMeal(mealId: number): { id: number; name: string }[] {
-  return getDb().prepare("SELECT r.id, r.name FROM meal_recipes mr JOIN recipes r ON r.id = mr.recipe_id WHERE mr.meal_id = ? ORDER BY r.name COLLATE NOCASE").all(mealId) as { id: number; name: string }[];
-}
-
-// What a shopping item is for, when it's added without a reason: the typical recipes that list it as something to buy.
+// What a shopping item is for, when it's added without a reason: the typical meals whose recipe lists it as something to buy.
 export function recipesUsing(itemName: string): string[] {
   const wanted = buyName(itemName);
   if (!wanted) return [];
-  const rows = getDb().prepare(`SELECT r.id, r.name, ri.buy FROM recipe_ingredients ri JOIN recipes r ON r.id = ri.recipe_id
-    WHERE ri.buy != '' ORDER BY r.name COLLATE NOCASE`).all() as { id: number; name: string; buy: string }[];
+  const rows = getDb().prepare(`SELECT m.id, m.name, l.buy FROM meal_lines l JOIN meals m ON m.id = l.meal_id
+    WHERE l.buy != '' ORDER BY m.name COLLATE NOCASE`).all() as { id: number; name: string; buy: string }[];
   const using = rows.filter((r) => r.buy.split(";").some((name) => buyName(name) === wanted));
   if (using.length === 0) return [];
-  const typical = typicalRecipeIds();
+  const typical = typicalMealIds();
   return [...new Set(using.filter((r) => typical.has(r.id)).map((r) => r.name))].slice(0, MAX_FILLED);
 }

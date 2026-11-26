@@ -153,40 +153,25 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   photo_at TEXT NOT NULL DEFAULT '',   -- when it was last set, so clients can tell a new photo from a cached one
   aisle_from TEXT NOT NULL DEFAULT '', -- where the aisle came from: 'you', 'remembered', 'store' (looked up), 'guess', or ''
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
-  meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or recipes it's bought for
+  meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or other reasons it's bought for
 );
--- Recipes: what gets cooked and shopped for (lib/recipes.ts). tags is a JSON list of words.
-CREATE TABLE IF NOT EXISTS recipes (
+-- How a meal is cooked (lib/recipes.ts), next to its summary, serves, times and tags on the meal itself.
+-- One line of its ingredient list as written; buy is what to shop for ('' = nothing), group_name a sub-list heading.
+CREATE TABLE IF NOT EXISTS meal_lines (
   id INTEGER PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  summary TEXT NOT NULL DEFAULT '',
-  serves TEXT NOT NULL DEFAULT '',
-  active_time TEXT NOT NULL DEFAULT '',
-  total_time TEXT NOT NULL DEFAULT '',
-  tags TEXT NOT NULL DEFAULT '[]'
-);
--- One line of a recipe's ingredient list as written; buy is what to shop for ('' = nothing), group_name a sub-list heading.
-CREATE TABLE IF NOT EXISTS recipe_ingredients (
-  id INTEGER PRIMARY KEY,
-  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
   position INTEGER NOT NULL,
   group_name TEXT NOT NULL DEFAULT '',
   text TEXT NOT NULL,
   buy TEXT NOT NULL DEFAULT ''
 );
--- The rest of a recipe (instructions, log, storage...): a title and a body of Markdown bullets.
-CREATE TABLE IF NOT EXISTS recipe_sections (
+-- The rest of how it's cooked (instructions, log, storage...): a title and a body of Markdown bullets.
+CREATE TABLE IF NOT EXISTS meal_sections (
   id INTEGER PRIMARY KEY,
-  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
   position INTEGER NOT NULL,
   title TEXT NOT NULL,
   body TEXT NOT NULL DEFAULT ''
-);
--- Which meals a recipe belongs to. A recipe is typical when one of its meals is in the typical day.
-CREATE TABLE IF NOT EXISTS meal_recipes (
-  meal_id INTEGER NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
-  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
-  PRIMARY KEY (meal_id, recipe_id)
 );
 -- Reasons switched off for this trip: their items are hidden. '' = items with no reason.
 CREATE TABLE IF NOT EXISTS shopping_hidden (
@@ -282,6 +267,15 @@ function migrate(db: DatabaseSync) {
   // 1 = cooked now and then, outside the typical day (cookies, a stew), so its ingredients still count as in use.
   const meals = db.prepare("PRAGMA table_info(meals)").all() as { name: string }[];
   if (!meals.some((c) => c.name === "occasional")) db.exec("ALTER TABLE meals ADD COLUMN occasional INTEGER NOT NULL DEFAULT 0;");
+  // How it's cooked, in a few words; tags is a JSON list of words. The ingredient lines and sections are in their own tables.
+  if (!meals.some((c) => c.name === "summary")) {
+    db.exec(`ALTER TABLE meals ADD COLUMN summary TEXT NOT NULL DEFAULT '';
+      ALTER TABLE meals ADD COLUMN serves TEXT NOT NULL DEFAULT '';
+      ALTER TABLE meals ADD COLUMN active_time TEXT NOT NULL DEFAULT '';
+      ALTER TABLE meals ADD COLUMN total_time TEXT NOT NULL DEFAULT '';
+      ALTER TABLE meals ADD COLUMN tags TEXT NOT NULL DEFAULT '[]';`);
+  }
+  mergeRecipes(db);
   const shoppingColumns = db.prepare("PRAGMA table_info(shopping_items)").all() as { name: string }[];
   if (!shoppingColumns.some((c) => c.name === "photo_type")) {
     db.exec("ALTER TABLE shopping_items ADD COLUMN photo_type TEXT NOT NULL DEFAULT ''; ALTER TABLE shopping_items ADD COLUMN photo_at TEXT NOT NULL DEFAULT '';");
@@ -330,6 +324,65 @@ export function migrateLater(db: DatabaseSync): void {
     db.prepare("UPDATE shopping_items SET meals = ?, later = 0 WHERE id = ?").run(JSON.stringify(meals), row.id);
   }
   if (later.length > 0) db.prepare("INSERT OR IGNORE INTO shopping_hidden (reason) VALUES ('Later')").run();
+}
+
+// Recipes used to be their own thing, linked to the meals they make. A recipe is now the cooking half of a meal:
+// its text moves onto its meal (onto each of them, when it had several). A recipe with no meal joins the meal of the
+// same name, or becomes a new occasional meal. [[links]] and shopping reasons that named a recipe follow it to its meal.
+export function mergeRecipes(db: DatabaseSync): void {
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'recipes'").get()) return;
+  type Old = { id: number; name: string; summary: string; serves: string; active_time: string; total_time: string; tags: string };
+  const HEAD = ["summary", "serves", "active_time", "total_time"] as const;
+  db.exec("BEGIN");
+  try {
+    const mealsOf = new Map<string, string[]>(); // lower-cased recipe name -> the meals it became
+    for (const recipe of db.prepare("SELECT * FROM recipes ORDER BY id").all() as unknown as Old[]) {
+      let mealIds = (db.prepare("SELECT meal_id FROM meal_recipes WHERE recipe_id = ? ORDER BY meal_id").all(recipe.id) as { meal_id: number }[]).map((r) => r.meal_id);
+      if (mealIds.length === 0) {
+        const same = db.prepare("SELECT id FROM meals WHERE name = ? COLLATE NOCASE").get(recipe.name) as { id: number } | undefined;
+        mealIds = [same?.id ?? Number(db.prepare("INSERT INTO meals (name, status, occasional) VALUES (?, 'approved', 1)").run(recipe.name).lastInsertRowid)];
+      }
+      for (const mealId of mealIds) {
+        // A meal that already took another recipe keeps its own words; this one's lines and sections go after them.
+        const meal = db.prepare("SELECT name, summary, serves, active_time, total_time, tags FROM meals WHERE id = ?").get(mealId) as unknown as Old;
+        const head = HEAD.map((field) => meal[field] || recipe[field]);
+        const tags = [...new Set([...(JSON.parse(meal.tags) as string[]), ...(JSON.parse(recipe.tags) as string[])])];
+        db.prepare("UPDATE meals SET summary = ?, serves = ?, active_time = ?, total_time = ?, tags = ? WHERE id = ?").run(...head, JSON.stringify(tags), mealId);
+        for (const [to, from] of [["meal_lines", "recipe_ingredients"], ["meal_sections", "recipe_sections"]]) {
+          const columns = to === "meal_lines" ? "group_name, text, buy" : "title, body";
+          const after = (db.prepare(`SELECT COUNT(*) AS n FROM ${to} WHERE meal_id = ?`).get(mealId) as { n: number }).n;
+          db.prepare(`INSERT INTO ${to} (meal_id, position, ${columns}) SELECT ?, ? + position, ${columns} FROM ${from} WHERE recipe_id = ? ORDER BY position`).run(mealId, after, recipe.id);
+        }
+        mealsOf.set(recipe.name.toLowerCase(), [...(mealsOf.get(recipe.name.toLowerCase()) ?? []), meal.name]);
+      }
+    }
+    // A link can only go to one page, so a recipe that became several meals keeps its old name as plain text.
+    const relink = (text: string) => text.replace(/\[\[([^\]]+)\]\]/g, (whole, name: string) => {
+      const meals = mealsOf.get(name.trim().toLowerCase());
+      return meals?.length === 1 ? `[[${meals[0]}]]` : whole;
+    });
+    for (const [table, column] of [["meals", "summary"], ["meal_lines", "text"], ["meal_sections", "body"]]) {
+      for (const row of db.prepare(`SELECT id, ${column} AS text FROM ${table} WHERE ${column} LIKE '%[[%'`).all() as { id: number; text: string }[]) {
+        const text = relink(row.text);
+        if (text !== row.text) db.prepare(`UPDATE ${table} SET ${column} = ? WHERE id = ?`).run(text, row.id);
+      }
+    }
+    for (const item of db.prepare("SELECT id, meals FROM shopping_items WHERE meals != '[]'").all() as { id: number; meals: string }[]) {
+      const reasons = [...new Set((JSON.parse(item.meals) as string[]).flatMap((reason) => mealsOf.get(reason.toLowerCase()) ?? [reason]))];
+      if (JSON.stringify(reasons) !== item.meals) db.prepare("UPDATE shopping_items SET meals = ? WHERE id = ?").run(JSON.stringify(reasons), item.id);
+    }
+    for (const { reason } of db.prepare("SELECT reason FROM shopping_hidden").all() as { reason: string }[]) {
+      const meals = mealsOf.get(reason.toLowerCase());
+      if (!meals) continue;
+      db.prepare("DELETE FROM shopping_hidden WHERE reason = ?").run(reason);
+      for (const meal of meals) db.prepare("INSERT OR IGNORE INTO shopping_hidden (reason) VALUES (?)").run(meal);
+    }
+    for (const table of ["meal_recipes", "recipe_ingredients", "recipe_sections", "recipes"]) db.exec(`DROP TABLE ${table}`);
+    db.exec("COMMIT");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 let db: DatabaseSync | undefined;

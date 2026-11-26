@@ -36,7 +36,7 @@ struct CheckMark: View {
     }
 }
 
-/// "for Stuffing": the meals or recipes an item is bought for, as a small brass tag.
+/// "for Stuffing": the meals or other reasons an item is bought for, as a small brass tag.
 struct MealTag: View {
     var meals: [String]
 

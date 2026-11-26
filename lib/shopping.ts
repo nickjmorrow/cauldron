@@ -10,7 +10,7 @@ import { getAisleContents } from "./store-map.ts";
 
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
 // aisleFrom: where the aisle came from ('you', 'remembered', 'store' when looked up, 'guess' from the name, or '').
-// looking: the store's aisle is being looked up right now. meals: what it's bought for (meals, recipes or any other reason).
+// looking: the store's aisle is being looked up right now. meals: what it's bought for (meals or any other reason).
 export type ShoppingItem = {
   id: number; name: string; qty: string; aisle: string; done: boolean; note: string; photo: string;
   aisleFrom: string; looking: boolean; meals: string[];
@@ -199,7 +199,7 @@ const photoPath = (id: number) => join(PHOTOS_DIR, String(id));
 
 // The aisle comes from what was typed, else the last time this item was on the list, else a guess from its name.
 // With lookUp, a guessed item is marked as being looked up; the caller starts the lookup (lib/aisles.ts).
-// Added with no reason, it's for the typical recipes that use it, when there are any (lib/recipes.ts).
+// Added with no reason, it's for the typical meals whose recipe uses it, when there are any (lib/recipes.ts).
 export function addItem(change: ItemChange & { name: string }, { lookUp = false } = {}): ShoppingItem {
   const remembered = change.aisle ? "" : rememberedAisle(change.name);
   const [aisle, from] = change.aisle ? [change.aisle, "you"] : remembered ? [remembered, "remembered"] : [guessSection(change.name), "guess"];

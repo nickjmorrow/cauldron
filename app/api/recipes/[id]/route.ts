@@ -1,8 +1,8 @@
-// One recipe: GET returns it whole, PUT replaces it (same shape), DELETE removes it.
-import { deleteRecipe, getRecipe, parseRecipe, saveRecipe } from "../../../../lib/recipes.ts";
+// One meal's recipe, by the meal's id: GET returns it whole, PUT replaces it (same shape; a new name renames the meal).
+import { getRecipe, parseRecipe, saveRecipe } from "../../../../lib/recipes.ts";
 
 type Context = { params: Promise<{ id: string }> };
-const notFound = () => Response.json({ error: "No recipe with that id." }, { status: 404 });
+const notFound = () => Response.json({ error: "No meal with that id." }, { status: 404 });
 
 export async function GET(_: Request, { params }: Context) {
   const recipe = getRecipe(Number((await params).id));
@@ -19,8 +19,4 @@ export async function PUT(request: Request, { params }: Context) {
   } catch (e) {
     return Response.json({ error: (e as Error).message }, { status: 409 });
   }
-}
-
-export async function DELETE(_: Request, { params }: Context) {
-  return deleteRecipe(Number((await params).id)) ? new Response(null, { status: 204 }) : notFound();
 }

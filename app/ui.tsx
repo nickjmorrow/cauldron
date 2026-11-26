@@ -7,7 +7,6 @@ import type { GenerateState } from "./actions.ts";
 const LINKS = [
   { href: "/days", label: "Day" },
   { href: "/meals", label: "Meals" },
-  { href: "/recipes", label: "Recipes" },
   { href: "/ingredients", label: "Ingredients" },
   { href: "/kitchen", label: "Kitchen" },  { href: "/shopping", label: "Shopping" },  { href: "/targets", label: "Targets" },
   { href: "/review", label: "Review" },
