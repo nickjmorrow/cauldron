@@ -71,15 +71,18 @@ function compareAisles(a: string, b: string): number {
 
 // Every open item by aisle, hidden ones included (clients leave those out: see isShown); done items are listed apart.
 // Items whose aisle is still being looked up wait in a first group, the Inbox, and move to their aisle when it ends.
-export function groupItems(items: ShoppingItem[], contents: Record<string, string> = getAisleContents()): Pick<ShoppingList, "groups" | "done"> {
-  const open = items.filter((i) => !i.done);
+// `kept`: items checked off since the list was last tidied. They stay in their aisle (still marked done) instead of
+// moving to done, so the rows below don't jump while someone is shopping. (apple/Shared/InPlace.swift does the same.)
+export function groupItems(items: ShoppingItem[], contents: Record<string, string> = getAisleContents(), kept: ReadonlySet<number> = new Set()): Pick<ShoppingList, "groups" | "done"> {
+  const inPlace = (i: ShoppingItem) => i.done && kept.has(i.id);
+  const open = items.filter((i) => !i.done || inPlace(i));
   const placed = open.filter((i) => !i.looking);
   const aisles = [...new Set(placed.map((i) => i.aisle))].sort(compareAisles);
   const byName = (a: ShoppingItem, b: ShoppingItem) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
   const groups = aisles.map((aisle) => ({ title: aisleTitle(aisle), holds: contents[aisle] ?? "", items: placed.filter((i) => i.aisle === aisle).sort(byName) }));
   const inbox = open.filter((i) => i.looking).sort(byName);
   if (inbox.length > 0) groups.unshift({ title: INBOX, holds: "", items: inbox });
-  return { groups, done: items.filter((i) => i.done) };
+  return { groups, done: items.filter((i) => i.done && !inPlace(i)) };
 }
 
 // An item is on this trip when one of its reasons is switched on; an item with no reason follows NO_REASON.
@@ -136,8 +139,8 @@ export function listReasons(): string[] {
   return [...current, ...past].slice(0, Math.max(MAX_REASONS, current.length));
 }
 
-export function shoppingList(): ShoppingList {
-  return { ...groupItems(listItems()), reasons: listReasons(), hidden: getHidden() };
+export function shoppingList(kept?: ReadonlySet<number>): ShoppingList {
+  return { ...groupItems(listItems(), getAisleContents(), kept), reasons: listReasons(), hidden: getHidden() };
 }
 
 // Checks a change that came from outside (a form or the API). Returns the cleaned change, or what was wrong with it.

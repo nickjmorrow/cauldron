@@ -11,9 +11,17 @@ struct MacShoppingView: View {
     @State private var grace = Grace()
     @State private var focus: String?           // the one reason shown for now (shift-click a chip); never saved
     @State private var hoveredID: Int?
+    @State private var layout: Layout?          // where items sat when the list last settled: check-offs stay put till then
     @Environment(\.undoManager) private var undoManager
 
-    private var groups: [ItemGroup] { store.list.visibleGroups(focus: focus) }
+    private var groups: [ItemGroup] { store.list.visibleGroups(focus: focus, keeping: layout) }
+    private var doneItems: [Item] { store.list.doneSection(keeping: layout) }
+
+    /// Moves the crossed-out items to Done: the list takes its sorted shape again.
+    private func settle() {
+        grace.applyAll()
+        withAnimation { layout = Layout(store.list) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,27 +38,32 @@ struct MacShoppingView: View {
                             }
                         }
                             .padding(.top, 18).padding(.bottom, 6).padding(.horizontal, 4)
-                        card(group.items)
+                        card(group.items, inPlace: true)
                     }
-                    if !store.list.done.isEmpty { doneSection }
+                    if !doneItems.isEmpty { doneSection }
                 }
                 .padding(.horizontal, 20).padding(.bottom, 24)
             }
             .overlay {
-                if groups.isEmpty && store.list.done.isEmpty {
+                if groups.isEmpty && doneItems.isEmpty {
                     Text(focus != nil ? "Nothing left for \(focus == noReason ? "no reason" : focus ?? "")." : store.list.hiddenCount > 0 ? "Nothing for this trip. Everything left is for a reason that's switched off." : "Nothing on the list.")
                         .foregroundStyle(Theme.muted)
                 }
             }
         }
-        .task { await store.sync() }
-        .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync() } }
+        .task { settle(); await store.sync() }
+        .onChange(of: store.list) { _, list in layout = list.following(layout) }
+        .onReceive(NotificationCenter.default.publisher(for: .reload)) { _ in Task { await store.sync(); settle() } }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            settle()
             Task { await store.sync() }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in grace.applyAll() }
         .toolbar {
-            Button { Task { await store.sync() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+            if !store.list.keptIDs(layout).isEmpty {
+                Button("Tidy up") { settle() }.help("Move the crossed-out items to Done")
+            }
+            Button { Task { await store.sync(); settle() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
         }
         .sheet(item: $viewing) { item in
             VStack {
@@ -65,7 +78,7 @@ struct MacShoppingView: View {
     /// Pinned above the list, so it's in reach however far down you are: adding an item, and the reasons shown this
     /// trip.
     private var topBar: some View {
-        let open = groups.reduce(0) { $0 + $1.items.count }
+        let open = groups.reduce(0) { $0 + $1.items.filter { !$0.done }.count }
         return VStack(alignment: .leading, spacing: 6) {
             MacAddBar(known: store.list.knownReasons) { name, aisle, reasons in store.add(name: name, aisle: aisle, reasons: reasons) }
             if !store.list.chips.isEmpty || focus != nil {
@@ -80,11 +93,11 @@ struct MacShoppingView: View {
     }
 
     /// One group's rows on a rounded card, with hairlines between rows.
-    private func card(_ items: [Item]) -> some View {
+    private func card(_ items: [Item], inPlace: Bool = false) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
                 if index > 0 { Divider().overlay(Theme.line).padding(.leading, 44) }
-                row(item).padding(.horizontal, 12)
+                row(item, inPlace: inPlace).padding(.horizontal, 12)
             }
         }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
@@ -95,7 +108,7 @@ struct MacShoppingView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Button { withAnimation { showDone.toggle() } } label: {
-                    Label("Done (\(store.list.done.count))", systemImage: showDone ? "chevron.down" : "chevron.right")
+                    Label("Done (\(doneItems.count))", systemImage: showDone ? "chevron.down" : "chevron.right")
                         .font(.headline).foregroundStyle(Theme.muted)
                 }
                 .buttonStyle(.plain)
@@ -103,18 +116,19 @@ struct MacShoppingView: View {
                 if showDone { Button("Clear done", role: .destructive) { store.clearDone() }.foregroundStyle(Theme.bad) }
             }
             .padding(.top, 18).padding(.horizontal, 4)
-            if showDone { card(store.list.done) }
+            if showDone { card(doneItems) }
         }
     }
 
-    private func row(_ stored: Item) -> some View {
+    /// `inPlace`: the row is in its aisle, even if it's been checked off (it keeps its tag button, so nothing shifts).
+    private func row(_ stored: Item, inPlace: Bool = false) -> some View {
         let item = grace.shown(stored)
         return HStack(spacing: 12) {
             Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: { CheckMark(done: item.done, size: 20) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
             // One click opens what the item is for. It stays (dimmed) while a check-off waits, so the row doesn't shift.
-            if !stored.done {
+            if !stored.done || inPlace {
                 Button { reasonsFor = stored } label: {
                     Image(systemName: item.reasons.isEmpty ? "tag" : "tag.fill")
                         .foregroundStyle(item.reasons.isEmpty ? Theme.muted : Theme.sun)

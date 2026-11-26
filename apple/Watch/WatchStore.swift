@@ -18,6 +18,9 @@ final class WatchStore: NSObject, WCSessionDelegate {
     /// Tapped and shown ticked, but not yet checked off: a second tap within the wait takes it back.
     private(set) var ticked: Set<Int> = []
     @ObservationIgnored private var waiting: [Int: Task<Void, Never>] = [:]
+    /// Checked off since the list last settled: shown ticked where they sat, so the rows below don't jump up.
+    private(set) var kept: Set<Int> = []
+    @ObservationIgnored private var layout: Layout?
     #if DEBUG
     @ObservationIgnored private var debugFired = false
     #endif
@@ -30,6 +33,7 @@ final class WatchStore: NSObject, WCSessionDelegate {
 
     /// Ticks an item; it's checked off after a short wait unless tapped again first.
     func tap(_ item: Item) {
+        guard !kept.contains(item.id) else { return }
         WKInterfaceDevice.current().play(.click)
         if let timer = waiting.removeValue(forKey: item.id) {
             timer.cancel()
@@ -42,6 +46,12 @@ final class WatchStore: NSObject, WCSessionDelegate {
             guard !Task.isCancelled else { return }
             self?.finish(item)
         }
+    }
+
+    /// Lets the checked-off rows go (the app is back on screen).
+    func settle() {
+        layout = nil
+        show()
     }
 
     /// Checks off everything still waiting (the app is leaving the screen).
@@ -97,10 +107,18 @@ final class WatchStore: NSObject, WCSessionDelegate {
     }
 
     private func show() {
-        groups = (received?.groups ?? []).compactMap { group in
-            let items = group.items.filter { !$0.done && $0.isShown(hidden: received?.hiddenReasons ?? []) && !checked.contains($0.id) }
+        let hidden = received?.hiddenReasons ?? []
+        let open = (received?.groups ?? []).compactMap { group in
+            let items = group.items.filter { !$0.done && $0.isShown(hidden: hidden) && !checked.contains($0.id) }
             return items.isEmpty ? nil : ItemGroup(title: group.title, holds: group.holds, items: items)
         }
+        let openIDs = Set(open.flatMap(\.items).map(\.id))
+        let all = (received?.groups.flatMap(\.items) ?? []) + (received?.done ?? [])
+        let wasThere = Set(layout?.ids ?? [])
+        let keep = all.filter { wasThere.contains($0.id) && !openIDs.contains($0.id) && ($0.done || checked.contains($0.id)) && $0.isShown(hidden: hidden) }
+        kept = Set(keep.map(\.id))
+        groups = placing(keep, into: open, layout: layout)
+        if received != nil { layout = Layout(groups: groups) }
     }
 
     func session(_ session: WCSession, activationDidCompleteWith state: WCSessionActivationState, error: Error?) {

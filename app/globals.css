@@ -499,6 +499,7 @@ button.shop-meals:hover { border-color: var(--sun); }
 .shop-for-body { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 10px 0 4px; }
 .shop-for-body input[name="newMeals"] { flex: 1 0 100%; max-width: 420px; }
 .shop-bar .shop-for[open] { flex-basis: 100%; }
+.shop-bar .shop-tidy { flex: none; }
 .shop-for-body label { min-height: 34px; }
 .shop-edit summary { cursor: pointer; color: var(--muted); font-size: 13px; padding: 8px 4px; min-height: 40px; display: inline-flex; align-items: center; gap: 7px; list-style: none; border-radius: 6px; }
 .shop-edit summary::-webkit-details-marker { display: none; }

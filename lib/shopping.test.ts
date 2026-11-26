@@ -36,6 +36,13 @@ test("done items leave their group and are listed apart; empty groups are left o
   assert.deepEqual(list.done.map((i) => i.name), ["Bread"]);
 });
 
+test("kept items stay in their aisle, still done, until the list is tidied", () => {
+  const items = [{ ...item("Bread", "2", { done: true }), id: 1 }, { ...item("Butter", "2", { done: true }), id: 2 }, { ...item("Milk", "3"), id: 3 }];
+  const list = groupItems(items, {}, new Set([1]));
+  assert.deepEqual(list.groups.map((g) => [g.title, g.items.map((i) => [i.name, i.done])]), [["Aisle 2", [["Bread", true]]], ["Aisle 3", [["Milk", false]]]]);
+  assert.deepEqual(list.done.map((i) => i.name), ["Butter"]);
+});
+
 test("an aisle number reads as 'Aisle n' and a named area as written", () => {
   assert.equal(aisleTitle("04"), "Aisle 4");
   assert.equal(aisleTitle("Deli"), "Deli");

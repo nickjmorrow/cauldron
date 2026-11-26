@@ -7,6 +7,7 @@ struct ListScreen: View {
     @State private var showDone = false
     @State private var reasonsFor: Item?        // the item whose reasons are being picked
     @State private var grace = Grace()
+    @State private var layout: Layout?          // where items sat when the list last settled: check-offs stay put till then
     @State private var focus: String?           // the one reason shown for now (long-press a chip); never saved
     @Environment(\.undoManager) private var undoManager
     @State private var showSettings = false
@@ -24,9 +25,9 @@ struct ListScreen: View {
                         .listRowInsets(EdgeInsets())
                         .listRowBackground(Color.clear)
                 }
-                ForEach(store.list.visibleGroups(focus: focus)) { group in
+                ForEach(store.list.visibleGroups(focus: focus, keeping: layout)) { group in
                     Section {
-                        ForEach(group.items) { item in row(item) }
+                        ForEach(group.items) { item in row(item, inPlace: true) }
                     } header: {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
@@ -36,22 +37,28 @@ struct ListScreen: View {
                         }
                     }
                 }
-                if !store.list.done.isEmpty { doneSection }
+                if !doneItems.isEmpty { doneSection }
             }
             .listStyle(.insetGrouped)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
             .background(Theme.bg)
             .overlay {
-                if store.list.visibleGroups(focus: focus).isEmpty && store.list.done.isEmpty {
+                if store.list.visibleGroups(focus: focus, keeping: layout).isEmpty && doneItems.isEmpty {
                     Text(focus != nil ? "Nothing left for \(focus == noReason ? "no reason" : focus ?? "")." : store.list.hiddenCount > 0 ? "Nothing for this trip.\nEverything left is for a reason that's switched off." : "Nothing on the list.")
                         .multilineTextAlignment(.center).foregroundStyle(Theme.muted)
                 }
             }
-            .refreshable { await store.sync() }
+            .refreshable { await store.sync(); settle() }
             .navigationTitle("Shopping")
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbar {
+                if !store.list.keptIDs(layout).isEmpty {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Tidy up") { settle() }
+                            .accessibilityHint("Moves the crossed-out items to Done")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showSettings = true } label: { Image(systemName: "gearshape") }
                         .accessibilityLabel("Settings")
@@ -87,10 +94,19 @@ struct ListScreen: View {
             }
             .sheet(item: $viewing) { item in PhotoViewer(url: store.photoURL(item), title: item.name) }
         }
-        .task { await store.sync() }
+        .task { settle(); await store.sync() }
+        .onChange(of: store.list) { _, list in layout = list.following(layout) }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await store.sync() } } else { grace.applyAll() }
+            if phase == .active { settle(); Task { await store.sync() } } else { grace.applyAll() }
         }
+    }
+
+    private var doneItems: [Item] { store.list.doneSection(keeping: layout) }
+
+    /// Moves the crossed-out items to Done: the list takes its sorted shape again.
+    private func settle() {
+        grace.applyAll()
+        withAnimation { layout = Layout(store.list) }
     }
 
     private func upload(_ image: UIImage, for item: Item) async {
@@ -98,8 +114,10 @@ struct ListScreen: View {
         await store.setPhoto(item.id, jpeg: jpeg)
     }
 
-    private func row(_ stored: Item) -> some View {
+    /// `inPlace`: the row is in its aisle, even if it's been checked off (it keeps its tag button, so nothing shifts).
+    private func row(_ stored: Item, inPlace: Bool = false) -> some View {
         let item = grace.shown(stored)
+        let underDone = stored.done && !inPlace
         return HStack(spacing: 0) {
             Button { grace.toggleDone(stored, in: store, undo: undoManager) } label: {
                 CheckMark(done: item.done).frame(height: 44).contentShape(Rectangle())
@@ -107,7 +125,7 @@ struct ListScreen: View {
             .buttonStyle(.plain)
             .accessibilityLabel(item.done ? "Put \(item.name) back" : "Check off \(item.name)")
             // One tap opens what the item is for. It stays (dimmed) while a check-off waits, so the row doesn't shift.
-            if !stored.done {
+            if !underDone {
                 Button { reasonsFor = stored } label: {
                     Image(systemName: item.reasons.isEmpty ? "tag" : "tag.fill")
                         .font(.title3)
@@ -121,7 +139,7 @@ struct ListScreen: View {
                 .accessibilityLabel("What \(item.name) is for")
                 .accessibilityValue(item.reasons.joined(separator: ", "))
             }
-            nameButton(item, stored: stored).padding(.leading, stored.done ? 14 : 0)
+            nameButton(item, stored: stored).padding(.leading, underDone ? 14 : 0)
             if let url = store.photoURL(item) {
                 Button { viewing = item } label: { Thumbnail(url: url) }
                     .buttonStyle(.plain)
@@ -177,7 +195,7 @@ struct ListScreen: View {
     private var doneSection: some View {
         Section {
             if showDone {
-                ForEach(store.list.done) { item in row(item) }
+                ForEach(doneItems) { item in row(item) }
                 Button("Clear done", role: .destructive) { store.clearDone() }
                     .font(.subheadline)
                     .foregroundStyle(Theme.bad)
@@ -186,7 +204,7 @@ struct ListScreen: View {
         } header: {
             Button { withAnimation { showDone.toggle() } } label: {
                 HStack {
-                    Text("Done (\(store.list.done.count))")
+                    Text("Done (\(doneItems.count))")
                     Spacer()
                     Image(systemName: "chevron.right").rotationEffect(.degrees(showDone ? 90 : 0))
                 }

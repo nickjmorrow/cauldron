@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { changeShoppingItem } from "../actions.ts";
+import { keep } from "./kept.tsx";
 
 // A tap on the checkbox shows at once but is only saved after this wait, so a slip can be tapped back
 // before the row moves.
@@ -23,6 +24,7 @@ export function ShopRow({ id, name, done, children }: { id: number; name: string
     if (!w) return;
     clearTimeout(w.timer);
     waiting.current = null;
+    keep(id, w.done); // a checked-off row stays where it is until the list is tidied
     void changeShoppingItem(id, { done: w.done });
   };
   // Leaving the page saves a waiting change at once.

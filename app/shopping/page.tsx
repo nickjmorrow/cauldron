@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { getDb } from "../../lib/db.ts";
 import { getStoreMap } from "../../lib/store-map.ts";
 import { isShownWithFocus, NO_REASON, shoppingList, type ShoppingItem } from "../../lib/shopping.ts";
@@ -6,6 +7,7 @@ import { RefreshWhile } from "./refresh-while.tsx";
 import { ReasonChips } from "./reason-chips.tsx";
 import { ReasonEditor } from "./reason-editor.tsx";
 import { ShopRow } from "./shop-row.tsx";
+import { Tidy } from "./kept.tsx";
 import { addShoppingItem, clearShoppingDone, removeShoppingItem, setShoppingAisle } from "../actions.ts";
 
 // What an item is for: the known reasons as checkboxes, and a field for a new one (several, with commas).
@@ -24,7 +26,9 @@ function ReasonPicker({ reasons, picked }: { reasons: string[]; picked: string[]
   );
 }
 
-function Item({ item, reasons }: { item: ShoppingItem; reasons: string[] }) {
+// inPlace: in its aisle, even when checked off (kept there until the list is tidied), so it keeps its controls.
+function Item({ item, reasons, inPlace = false }: { item: ShoppingItem; reasons: string[]; inPlace?: boolean }) {
+  const underDone = item.done && !inPlace;
   return (
     // Keyed by what's saved, so a row that waited on a tap starts fresh once the change is in.
     <ShopRow key={String(item.done)} id={item.id} name={item.name} done={item.done}>
@@ -39,11 +43,11 @@ function Item({ item, reasons }: { item: ShoppingItem; reasons: string[] }) {
       </div>
       <span className="shop-extra">
         {item.looking && <span className="shop-looking" role="status"><span className="spinner" aria-hidden="true" /> Finding its aisle…</span>}
-        {item.done
+        {underDone
           ? item.meals.length > 0 && <span className="shop-meals">{item.meals.join(", ")}</span>
           : <ReasonEditor id={item.id} name={item.name} picked={item.meals} reasons={reasons} />}
       </span>
-      {!item.done && (
+      {!underDone && (
         <details className="shop-edit">
           <summary aria-label={`Change ${item.name}`}>Change</summary>
           <div className="shop-edit-body">
@@ -61,18 +65,21 @@ function Item({ item, reasons }: { item: ShoppingItem; reasons: string[] }) {
 }
 
 export default async function Shopping({ searchParams }: { searchParams: Promise<{ focus?: string }> }) {
-  const { groups, done, reasons, hidden } = shoppingList();
+  // Checked off since the list was last tidied: these stay in their aisle, crossed out (app/shopping/kept.tsx).
+  const kept = new Set(((await cookies()).get("shop_kept")?.value ?? "").split(".").map(Number).filter((n) => Number.isInteger(n) && n > 0));
+  const { groups, done, reasons, hidden } = shoppingList(kept);
   // The one reason this browser is focused on for now ("" = no reason); never saved.
   const focus = (await searchParams).focus ?? null;
   const meals = getDb().prepare("SELECT id, name FROM meals ORDER BY name").all() as { id: number; name: string }[];
 
-  const open = groups.flatMap((g) => g.items);
+  const open = groups.flatMap((g) => g.items).filter((i) => !i.done);
+  const keptCount = groups.reduce((n, g) => n + g.items.filter((i) => i.done).length, 0);
   // One chip per reason on the list (and any that's switched off), then one for items with no reason.
   const onList = reasons.filter((r) => hidden.includes(r) || open.some((i) => i.meals.some((m) => m.toLowerCase() === r.toLowerCase())));
   const chips = [...onList, ...(open.some((i) => i.meals.length === 0) || hidden.includes(NO_REASON) ? [NO_REASON] : [])];
   const count = (reason: string) => open.filter((i) => (reason === NO_REASON ? i.meals.length === 0 : i.meals.some((m) => m.toLowerCase() === reason.toLowerCase()))).length;
   const shown = groups.map((g) => ({ ...g, items: g.items.filter((i) => isShownWithFocus(i, hidden, focus)) })).filter((g) => g.items.length > 0);
-  const hiddenCount = open.length - shown.reduce((n, g) => n + g.items.length, 0);
+  const hiddenCount = open.length - shown.reduce((n, g) => n + g.items.filter((i) => !i.done).length, 0);
   const looking = groups.some((g) => g.items.some((i) => i.looking));
   const storeMap = getStoreMap();
 
@@ -92,6 +99,7 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
         </form>
         <datalist id="shop-meal-names">{meals.map((m) => <option key={m.id} value={m.name} />)}</datalist>
 
+        <Tidy count={keptCount} />
         {chips.length > 0 && (
           <ReasonChips focus={focus} chips={chips.map((r) => ({ reason: r, title: r === NO_REASON ? "No reason" : r, count: count(r), hidden: hidden.includes(r) }))} />
         )}
@@ -102,8 +110,8 @@ export default async function Shopping({ searchParams }: { searchParams: Promise
       )}
       {shown.map((g) => (
         <section key={g.title} className="shop-group">
-          <h2>{g.title} <span className="muted">({g.items.length})</span>{g.holds && <span className="shop-holds">{g.holds}</span>}</h2>
-          <ul className="shop-list">{g.items.map((i) => <Item key={i.id} item={i} reasons={reasons} />)}</ul>
+          <h2>{g.title} <span className="muted">({g.items.filter((i) => !i.done).length})</span>{g.holds && <span className="shop-holds">{g.holds}</span>}</h2>
+          <ul className="shop-list">{g.items.map((i) => <Item key={i.id} item={i} reasons={reasons} inPlace />)}</ul>
         </section>
       ))}
       {done.length > 0 && (

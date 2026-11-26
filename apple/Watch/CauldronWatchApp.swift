@@ -42,15 +42,17 @@ struct WatchList: View {
             .containerBackground(Theme.bg.gradient, for: .navigation)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { store.finishAll() }
+            if phase == .active { store.settle() } else { store.finishAll() }
         }
     }
 
     private func row(_ item: Item) -> some View {
         HStack(spacing: 10) {
-            CheckMark(done: store.ticked.contains(item.id), size: 22)
+            let crossed = store.kept.contains(item.id)
+            CheckMark(done: crossed || store.ticked.contains(item.id), size: 22)
             VStack(alignment: .leading, spacing: 1) {
-                Text(item.name).font(.title3.weight(.medium)).foregroundStyle(Theme.fg)
+                Text(item.name).font(.title3.weight(.medium)).foregroundStyle(crossed ? Theme.muted : Theme.fg)
+                    .strikethrough(crossed, color: Theme.muted)
                 let detail = [item.qty, item.note].filter { !$0.isEmpty }.joined(separator: " · ")
                 if !detail.isEmpty {
                     Text(detail).font(.footnote).foregroundStyle(Theme.muted)
