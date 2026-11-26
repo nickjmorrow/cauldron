@@ -1,15 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-<clipPath id="tile"><rect width="120" height="120" rx="27"/></clipPath><g clip-path="url(#tile)"><rect x="0" y="0" width="120" height="120" fill="#2a1518"/>
-<g fill="none" stroke="#c9a85c" stroke-linecap="round">
- <circle cx="60" cy="60" r="46" stroke-width=".9"/>
- <circle cx="60" cy="60" r="42" stroke-width="3.5" stroke-dasharray=".9 6.43" opacity=".85"/>
- <circle cx="60" cy="60" r="38" stroke-width=".5" opacity=".5"/>
- <g stroke-width=".8" opacity=".9"><path d="M72.29 14.12 L72.81 12.19"/><path d="M83.75 18.86 L84.75 17.13"/><path d="M93.59 26.41 L96.42 23.58"/><path d="M101.14 36.25 L102.87 35.25"/><path d="M105.88 47.71 L107.81 47.19"/><path d="M107.50 60.00 L111.50 60.00"/><path d="M105.88 72.29 L107.81 72.81"/><path d="M101.14 83.75 L102.87 84.75"/><path d="M93.59 93.59 L96.42 96.42"/><path d="M83.75 101.14 L84.75 102.87"/><path d="M72.29 105.88 L72.81 107.81"/><path d="M60.00 107.50 L60.00 111.50"/><path d="M47.71 105.88 L47.19 107.81"/><path d="M36.25 101.14 L35.25 102.87"/><path d="M26.41 93.59 L23.58 96.42"/><path d="M18.86 83.75 L17.13 84.75"/><path d="M14.12 72.29 L12.19 72.81"/><path d="M12.50 60.00 L8.50 60.00"/><path d="M14.12 47.71 L12.19 47.19"/><path d="M18.86 36.25 L17.13 35.25"/><path d="M26.41 26.41 L23.58 23.58"/><path d="M36.25 18.86 L35.25 17.13"/><path d="M47.71 14.12 L47.19 12.19"/></g>
- <polygon points="60.00,22.00 92.91,79.00 27.09,79.00" stroke-width=".9" stroke-linejoin="round"/>
-</g>
-<g fill="#c9a85c"><circle cx="60.00" cy="22.00" r="1.5"/><circle cx="92.91" cy="79.00" r="1.5"/><circle cx="27.09" cy="79.00" r="1.5"/></g>
-<path d="M60 6.5 L63.5 12.5 H56.5 Z" fill="none" stroke="#cf6f45" stroke-width="1" stroke-linejoin="round"/>
-<circle cx="60" cy="60" r="27" fill="none" stroke="#cf6f45" stroke-width=".7" stroke-dasharray="1.5 3" opacity=".9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120"><clipPath id="r"><rect width="120" height="120" rx="27"/></clipPath><g clip-path="url(#r)">
+<rect x="0" y="0" width="120" height="120" fill="#2a1518"/>
+<g fill="none" stroke="#c9a85c" stroke-linecap="round"><circle cx="60" cy="60" r="46" stroke-width=".9"/><circle cx="60" cy="60" r="38" stroke-width=".5" opacity=".5"/></g>
+<circle cx="60" cy="60" r="42" fill="none" stroke="#cf6f45" stroke-width="3.2" stroke-linecap="round" stroke-dasharray=".9 6.43" opacity=".9"/>
+<path d="M89.05 21.16 L95.03 18.25 L93.20 24.65" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M107.22 48.92 L113.67 50.54 L108.16 54.26" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M103.29 81.87 L107.20 87.25 L100.58 86.56" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M79.11 104.58 L78.64 111.21 L74.02 106.43" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M45.98 106.43 L41.36 111.21 L40.89 104.58" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M19.42 86.56 L12.80 87.25 L16.71 81.87" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M11.84 54.26 L6.33 50.54 L12.78 48.92" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<path d="M26.80 24.65 L24.97 18.25 L30.95 21.16" fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linejoin="round" stroke-linecap="round"/>
+<g fill="none" stroke="#c9a85c" stroke-width=".9" stroke-linecap="round"><path d="M57.4 26.5 L27.09 79 M62.6 26.5 L92.91 79 M21 79 H99"/></g>
+<g fill="#c9a85c"><circle cx="60" cy="22" r="1.5"/><circle cx="92.91" cy="79" r="1.5"/><circle cx="27.09" cy="79" r="1.5"/></g>
+<g id="marker"><path d="M60 5 L64 12 H56 Z" fill="none" stroke="#cf6f45" stroke-width="1" stroke-linejoin="round"/></g>
 <g fill="none" stroke="#e8dcc0" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
  <circle cx="53.5" cy="44" r="2.2"/><circle cx="61.5" cy="37.5" r="3"/><circle cx="68" cy="44.5" r="1.6"/>
  <path d="M44 56.5 C 34 64, 36 82, 60 82 C 84 82, 86 64, 76 56.5" fill="#2a1518"/>
