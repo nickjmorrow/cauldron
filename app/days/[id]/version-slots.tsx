@@ -128,7 +128,7 @@ export function VersionSlots({ base, resolved, adjustments, want, foodOptions }:
               const dropped = p.options.filter((b) => b.status === "dropped");
               return (
                 <div key={p.part} className="part">
-                  {index > 0 && <div className="with" aria-hidden="true">with</div>}
+                  {(index > 0 || p.name) && <div className="with part-name">{index > 0 && <span aria-hidden="true">with </span>}<b>{p.name}</b></div>}
                   {live.length > 1 && <div className="muted gh-alts-title">one of {live.length}, each eaten equally often</div>}
                   <div className="gh-vars">
                     {live.map((b) => <Editable key={b.option.optionId} block={b} slotName={slot.name} want={want}><BaseControls block={b} want={want} /></Editable>)}

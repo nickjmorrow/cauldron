@@ -10,7 +10,7 @@ export type Block = {
   factor: number;
   odd?: "bigger" | "smaller"; // far from the other variations of the same meal
 };
-export type GhostPart = { part: number; options: Block[] };
+export type GhostPart = { part: number; name: string; options: Block[] };
 export type GhostSlot = { id: number; name: string; parts: GhostPart[]; added: Block[] };
 
 const kcal = (o: SlotOption) => Math.round(o.meal.totals.calories ?? 0);
@@ -21,6 +21,7 @@ export function ghostSlots(base: Slot[], resolved: Slot[]): GhostSlot[] {
     const mine = new Map(resolved[i].parts.flatMap((p) => p.options.map((o) => [o.optionId, o] as const)));
     const parts = slot.parts.map((p) => ({
       part: p.part,
+      name: p.name ?? "",
       options: p.options.map((o): Block => {
         const now = mine.get(o.optionId);
         if (!now) return { option: o, status: "dropped", planned: false, baseKcal: kcal(o), kcal: 0, factor: 1 };

@@ -210,6 +210,11 @@ button.icon:disabled { opacity: 0.3; cursor: default; }
 /* Things eaten together in one slot */
 .part { margin-top: 4px; }
 .with { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; padding: 4px 0 2px 18px; }
+.part-name b, .part-name .inline-name { font-weight: 600; color: var(--fg); }
+.part-name .rename-link { opacity: 0; transition: opacity 120ms; text-transform: none; letter-spacing: 0; }
+.part:hover .part-name .rename-link, .part-name .rename-link:focus-visible { opacity: 1; }
+@media (hover: none) { .part-name .rename-link { opacity: 1; } }
+.part-name .inline-name input { font: inherit; text-transform: none; letter-spacing: 0; padding: 2px 6px; width: 180px; }
 details.variation { margin: 0 0 4px 18px; }
 details.variation summary { color: var(--muted); font-size: 13px; cursor: pointer; width: fit-content; list-style: none; text-decoration: underline; text-underline-offset: 3px; }
 details.variation summary::-webkit-details-marker { display: none; }

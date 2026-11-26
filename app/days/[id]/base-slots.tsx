@@ -1,7 +1,7 @@
 import { RenameLabel } from "../../rename.tsx";
 import { Select, type Option } from "../../select.tsx";
 import type { Slot } from "../../../lib/queries.ts";
-import { addOption, addSlot, moveSlot, removeOption, removeSlot, renameSlot } from "../../actions.ts";
+import { addOption, addSlot, moveSlot, removeOption, removeSlot, renamePart, renameSlot } from "../../actions.ts";
 
 const Chevron = ({ up }: { up?: boolean }) => (
   <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" style={up ? { transform: "rotate(180deg)" } : undefined}>
@@ -30,7 +30,13 @@ export function BaseSlots({ slots, mealOptions }: { slots: Slot[]; mealOptions: 
               </div>
               {s.parts.map((p, index) => (
                 <div key={p.part} className="part">
-                  {index > 0 && <div className="with" aria-hidden="true">with</div>}
+                  {/* What the part is called (Sauce); a slot that is one thing needs no name. */}
+                  {(together || p.name) && (
+                    <div className="with part-name">
+                      {index > 0 && <span aria-hidden="true">with </span>}
+                      <RenameLabel id={p.part} name={p.name ?? ""} action={renamePart.bind(null, s.id)} unnamed={index > 0 ? null : <span>unnamed</span>} />
+                    </div>
+                  )}
                   {p.options.map((o) => (
                     <div key={o.optionId} className="option">
                       <span className="grow">
