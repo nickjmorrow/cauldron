@@ -5,7 +5,7 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSyn
 import { join } from "node:path";
 import { getDb, PHOTOS_DIR } from "./db.ts";
 import { recipesUsing } from "./recipes.ts";
-import { guessSection, sectionRank } from "./sections.ts";
+import { compareAisles, guessSection } from "./sections.ts";
 import { getAisleContents } from "./store-map.ts";
 
 // photo is a version token (when the photo was set), or "" when there is none; the image is at /api/shopping/<id>/photo.
@@ -59,14 +59,6 @@ export function aisleTitle(aisle: string): string {
 export function cleanAisle(text: string): string {
   const aisle = text.replace(/^aisle\s+/i, "");
   return /^\d+$/.test(aisle) ? String(Number(aisle)) : aisle;
-}
-
-// Numbered aisles in walking order, then store sections in walking order, then other named areas A to Z, then items with no aisle.
-function compareAisles(a: string, b: string): number {
-  const rank = (x: string) => (x === "" ? 2 : /^\d+$/.test(x) ? 0 : 1);
-  if (rank(a) !== rank(b)) return rank(a) - rank(b);
-  if (rank(a) === 0) return Number(a) - Number(b);
-  return sectionRank(a) - sectionRank(b) || a.localeCompare(b, undefined, { sensitivity: "base" });
 }
 
 // Every open item by aisle, hidden ones included (clients leave those out: see isShown); done items are listed apart.

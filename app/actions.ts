@@ -6,12 +6,14 @@ import { GOALS, parseProfile, planTargets, type Goal } from "../lib/calculators.
 import { createVersion, getOnlyDay, namePart, rejectVersion, saveGoalTargets } from "../lib/queries.ts";
 import { parseVersionKey } from "../lib/versions.ts";
 import { NUTRIENTS } from "../lib/nutrients.ts";
-import { CATEGORIES } from "../lib/categories.ts";
+import { CATEGORIES, HOMEMADE } from "../lib/categories.ts";
+import { SECTIONS } from "../lib/sections.ts";
+import { getAisleContents } from "../lib/store-map.ts";
 import { acceptProposal, createFixAllProposals, createFixProposal, createMatchAllProposals, dismissProposal } from "../lib/fixes.ts";
 import { setTolerance } from "../lib/tolerances.ts";
 import { proposeIngredients, proposeLikes, proposeMeal, proposePlacements } from "../lib/ai.ts";
 import { approveLike, likeFood, rejectLike, renameLikedSlot, unlikeFood } from "../lib/likes.ts";
-import { clearDone, getHidden, parseChange, removeItem, setHidden, updateItem, type ItemChange } from "../lib/shopping.ts";
+import { cleanAisle, clearDone, getHidden, parseChange, removeItem, setHidden, updateItem, type ItemChange } from "../lib/shopping.ts";
 import { addAndLookUp } from "../lib/aisles.ts";
 import { parseRecipe, saveRecipe } from "../lib/recipes.ts";
 import { addFood, removeAdjustment, removeMeal, resetVersion, restoreMeal, scaleMeal, setAddedQty } from "../lib/adjustments.ts";
@@ -65,10 +67,12 @@ export async function deleteIngredient(id: number) {
   refresh();
 }
 
-export async function setIngredientCategory(f: FormData) {
-  const category = str(f, "category");
-  if (!(CATEGORIES as readonly string[]).includes(category)) return;
-  getDb().prepare("UPDATE ingredients SET category = ? WHERE id = ?").run(category, int(f, "ingredient"));
+// Files an ingredient under a category, an area of the store, or both; whichever is left empty stays as it is.
+export async function placeIngredient(f: FormData) {
+  const category = str(f, "category"), area = cleanAisle(str(f, "area"));
+  const areas = [...Object.keys(getAisleContents()), ...SECTIONS, HOMEMADE];
+  if ((CATEGORIES as readonly string[]).includes(category)) getDb().prepare("UPDATE ingredients SET category = ? WHERE id = ?").run(category, int(f, "ingredient"));
+  if (areas.includes(area)) getDb().prepare("UPDATE ingredients SET aisle = ? WHERE id = ?").run(area, int(f, "ingredient"));
   refresh();
 }
 

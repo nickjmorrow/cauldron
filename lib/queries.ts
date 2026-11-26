@@ -9,7 +9,7 @@ import { resolveVersion, type Adjustment, type OptionAdjust } from "./resolve.ts
 export type Status = "proposed" | "approved";
 export type Ingredient = {
   id: number; name: string; serving: string; source: string; fdc_id: number | null;
-  notes: string; status: Status; nutrients: Nutrients; category: string;
+  notes: string; status: Status; nutrients: Nutrients; category: string; aisle: string;
 };
 export type Meal = { id: number; name: string; typical_slot: string; source: string; notes: string; status: Status; occasional: number };
 export type MealWithTotals = Meal & { totals: Nutrients; items: { ingredient: Ingredient; qty: number }[] };
@@ -29,6 +29,15 @@ export function listIngredients(status?: Status): Ingredient[] {
     ? getDb().prepare("SELECT * FROM ingredients WHERE status = ? ORDER BY name").all(status)
     : getDb().prepare("SELECT * FROM ingredients ORDER BY name").all();
   return rows.map(toIngredient).filter((i) => i.serving !== STUB_SERVING);
+}
+
+// The meals each ingredient is in, by ingredient id, meals A to Z.
+export function mealsUsing(): Map<number, { id: number; name: string }[]> {
+  const rows = getDb().prepare(`SELECT mi.ingredient_id, m.id, m.name FROM meal_items mi JOIN meals m ON m.id = mi.meal_id
+    ORDER BY m.name COLLATE NOCASE`).all() as { ingredient_id: number; id: number; name: string }[];
+  const used = new Map<number, { id: number; name: string }[]>();
+  for (const r of rows) used.set(r.ingredient_id, [...(used.get(r.ingredient_id) ?? []), { id: r.id, name: r.name }]);
+  return used;
 }
 
 export function getMeal(id: number): MealWithTotals | undefined {

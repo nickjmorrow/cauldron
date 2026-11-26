@@ -121,6 +121,12 @@ th { color: var(--muted); font-weight: 500; font-size: 13px; background: var(--s
 th a.sort { color: inherit; text-decoration: none; white-space: nowrap; }
 th a.sort:hover, th[aria-sort] a.sort { color: var(--fg); }
 tr.group th { background: var(--raised); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; position: static; }
+/* Ingredients: what an aisle holds, beside its heading, and the meals an ingredient is in, under its name. */
+.area-holds { margin-left: 10px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.used-in { margin-top: 2px; font-size: 13px; color: var(--muted); }
+.used-in a { color: inherit; text-decoration-color: var(--line); }
+.used-in a:hover { color: var(--fg); }
+.used-in a.unused { text-decoration-style: dotted; }
 tr.proposed { background: var(--proposed); }
 
 /* Status */
@@ -521,7 +527,8 @@ button.shop-meals:hover { border-color: var(--sun); }
 .shop-photo-pick:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 /* Meals: the day's meals set like a menu. A meal time reads across: its parts are eaten together ("with").
-   A part reads down: its dishes are swaps ("or"). The bright dish is the one the day plans. */
+   A part reads down: its dishes are swaps ("or"). Brass numbers are the dishes the day plans, which add up to the
+   brass total. */
 .menu { margin: 26px 0 30px; border-bottom: 1px solid var(--line); }
 .menu-slot { display: grid; grid-template-columns: 178px minmax(0, 1fr); gap: 0 28px; padding: 26px 0 28px; border-top: 1px solid var(--line); }
 .menu-name { margin: 0; font: 400 44px/1 var(--font-display); letter-spacing: -0.015em; text-transform: none; color: var(--fg); }
@@ -540,13 +547,12 @@ button.shop-meals:hover { border-color: var(--sun); }
 .menu-part:hover h3 .rename-link, .menu-part h3 .rename-link:focus-visible { opacity: 1; }
 @media (hover: none) { .menu-part h3 .rename-link { opacity: 1; } }
 .menu-part h3 .inline-name input { font: 400 14px/1.2 var(--font-ui); text-transform: none; letter-spacing: 0; width: 150px; padding: 2px 6px; }
-.menu-dish { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; color: var(--muted); }
+.menu-dish { display: flex; align-items: baseline; gap: 8px; padding: 5px 0; color: var(--fg); }
 .menu-dish a { font: 400 21px/1.2 var(--font-display); color: inherit; text-decoration: none; }
-.menu-dish a:hover { color: var(--fg); text-decoration: underline; text-decoration-thickness: 1px; }
+.menu-dish a:hover { text-decoration: underline; text-decoration-thickness: 1px; }
 .menu-dish .badge { margin-left: 0; flex: none; }
 .menu-dots { flex: 1; min-width: 12px; border-bottom: 1px dotted var(--line); transform: translateY(-4px); }
-.menu-kcal { font-size: 13px; white-space: nowrap; }
-.menu-dish.on { color: var(--fg); }
+.menu-kcal { font-size: 13px; white-space: nowrap; color: var(--muted); }
 .menu-dish.on .menu-kcal { color: var(--sun); font-weight: 600; }
 .menu-or { font: italic 400 14px/1 var(--font-display); color: var(--muted); padding: 1px 0; }
 @media (max-width: 900px) {

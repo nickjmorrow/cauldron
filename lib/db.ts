@@ -271,6 +271,8 @@ function migrate(db: DatabaseSync) {
   const ingredients = db.prepare("PRAGMA table_info(ingredients)").all() as { name: string }[];
   if (ingredients.some((c) => c.name === "contains_dairy")) db.exec("ALTER TABLE ingredients DROP COLUMN contains_dairy;");
   if (!ingredients.some((c) => c.name === "category")) db.exec("ALTER TABLE ingredients ADD COLUMN category TEXT NOT NULL DEFAULT '';");
+  // Where it's found in the store: an aisle number, a named area, or '' (then its category says, when it can).
+  if (!ingredients.some((c) => c.name === "aisle")) db.exec("ALTER TABLE ingredients ADD COLUMN aisle TEXT NOT NULL DEFAULT '';");
   // 1 = cooked now and then, outside the typical day (cookies, a stew), so its ingredients still count as in use.
   const meals = db.prepare("PRAGMA table_info(meals)").all() as { name: string }[];
   if (!meals.some((c) => c.name === "occasional")) db.exec("ALTER TABLE meals ADD COLUMN occasional INTEGER NOT NULL DEFAULT 0;");

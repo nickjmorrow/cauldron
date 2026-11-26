@@ -39,3 +39,11 @@ export function sectionRank(area: string): number {
   const i = SECTIONS.findIndex((s) => s.toLowerCase() === area.toLowerCase());
   return i === -1 ? SECTIONS.length : i;
 }
+
+// Numbered aisles in walking order, then store sections in walking order, then other named areas A to Z, then items with no aisle.
+export function compareAisles(a: string, b: string): number {
+  const rank = (x: string) => (x === "" ? 2 : /^\d+$/.test(x) ? 0 : 1);
+  if (rank(a) !== rank(b)) return rank(a) - rank(b);
+  if (rank(a) === 0) return Number(a) - Number(b);
+  return sectionRank(a) - sectionRank(b) || a.localeCompare(b, undefined, { sensitivity: "base" });
+}
