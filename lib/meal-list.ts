@@ -48,11 +48,15 @@ export function mealSlots(meals: { typical_slot: string }[]): string[] {
 // The listed meals laid out the way the day is built: its slots, each slot's parts (the things eaten together), each
 // part's meals (swaps for each other). planned is the meal the day plans for that part, when it is among those shown.
 // Meals keep the order they came in; a part or slot with nothing to show is left out; a meal in two parts goes with
-// the first. rest: the meals in no slot.
+// the first. sometimes: meals a version of the day adds to the slot (a second breakfast when bulking), with the
+// versions that add them. rest: the meals in no slot.
 export type BoardPart<T> = { part: number; name: string; meals: T[]; planned: T | undefined };
-export type BoardSlot<T> = { id: number; name: string; parts: BoardPart<T>[] };
+export type BoardExtra<T> = { meal: T; versions: string[] };
+export type BoardSlot<T> = { id: number; name: string; parts: BoardPart<T>[]; sometimes: BoardExtra<T>[] };
+// A meal that a version (named by its goal) adds to a slot.
+export type VersionExtra = { slotId: number; mealId: number; version: string };
 type DaySlot = { id: number; name: string; parts: { part: number; name?: string; options: { meal: { id: number }; isPlanned: boolean }[] }[] };
-export function mealBoard<T extends { id: number }>(meals: T[], slots: DaySlot[]): { slots: BoardSlot<T>[]; rest: T[] } {
+export function mealBoard<T extends { id: number }>(meals: T[], slots: DaySlot[], extras: VersionExtra[] = []): { slots: BoardSlot<T>[]; rest: T[] } {
   const placed = new Set<number>();
   const board: BoardSlot<T>[] = [];
   for (const slot of slots) {
@@ -65,9 +69,17 @@ export function mealBoard<T extends { id: number }>(meals: T[], slots: DaySlot[]
       const plannedId = part.options.find((o) => o.isPlanned)?.meal.id;
       parts.push({ part: part.part, name: part.name ?? "", meals: shown, planned: shown.find((m) => m.id === plannedId) });
     }
-    if (parts.length > 0) board.push({ id: slot.id, name: slot.name, parts });
+    board.push({ id: slot.id, name: slot.name, parts, sometimes: [] });
   }
-  return { slots: board, rest: meals.filter((m) => !placed.has(m.id)) };
+  // After every part, so a meal that is also one of the day's own stays where the day has it.
+  for (const slot of board) {
+    const mine = extras.filter((e) => e.slotId === slot.id);
+    for (const meal of meals.filter((m) => !placed.has(m.id) && mine.some((e) => e.mealId === m.id))) {
+      placed.add(meal.id);
+      slot.sometimes.push({ meal, versions: [...new Set(mine.filter((e) => e.mealId === meal.id).map((e) => e.version))] });
+    }
+  }
+  return { slots: board.filter((s) => s.parts.length > 0 || s.sometimes.length > 0), rest: meals.filter((m) => !placed.has(m.id)) };
 }
 
 // What a slot adds up to for one nutrient: with the planned meal of every part (the first shown, when the planned one

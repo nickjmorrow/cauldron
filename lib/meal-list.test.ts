@@ -67,6 +67,19 @@ test("parts and slots with nothing to show are left out; a meal in two parts goe
   assert.deepEqual(shape(mealBoard([], DAY)), [[]]);
 });
 
+test("a meal a version adds to a slot sits in that slot as a sometimes extra, unless the day already has it", () => {
+  const listed = [4, 5, 10, 11, 12].map((id) => ({ id }));
+  const extras = [
+    { slotId: 2, mealId: 10, version: "bulk" }, { slotId: 2, mealId: 10, version: "cut" }, { slotId: 2, mealId: 5, version: "bulk" },
+    { slotId: 3, mealId: 11, version: "bulk" }, { slotId: 9, mealId: 12, version: "bulk" },
+  ];
+  const board = mealBoard(listed, DAY, extras);
+  assert.deepEqual(board.slots.map((s) => [s.name, s.parts.length, s.sometimes.map((e) => [e.meal.id, e.versions])]), [
+    ["Lunch", 1, [[10, ["bulk", "cut"]]]], ["Dinner", 0, [[11, ["bulk"]]]],
+  ]);
+  assert.deepEqual(board.rest.map((m) => m.id), [12]);
+});
+
 test("a slot adds up to its planned meals, and to the lightest and heaviest swap of each part", () => {
   const food = (id: number, calories?: number) => ({ id, name: `m${id}`, typical_slot: "", totals: { calories } });
   const board = mealBoard([food(6, 300), food(8, 350), food(7, 80), food(9)], DAY);

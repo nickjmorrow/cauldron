@@ -27,7 +27,22 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   const slot = slots.includes(params.slot ?? "") ? params.slot : undefined;
   const meals = sortMeals(slot ? inFilter.filter((m) => m.typical_slot === slot) : inFilter, sort);
   // The day's own meals are drawn the way the day is built (below); every other meal is a row in the table.
-  const board = mealBoard(meals, onlyDay.slots);
+  // What an approved version adds to a slot (a second breakfast when bulking) belongs to that slot, as a sometimes.
+  const extras = onlyDay.versions.filter((v) => v.status === "approved").flatMap((v) =>
+    v.adjustments.flatMap((a) => (a.kind === "add" && a.mealId !== null ? [{ slotId: a.slotId, mealId: a.mealId, version: v.goal }] : [])));
+  const board = mealBoard(meals, onlyDay.slots, extras);
+  const capitalise = (word: string) => word[0].toUpperCase() + word.slice(1);
+  type Listed = (typeof meals)[number];
+  // One line of the menu: the dish, a dotted leader, what it weighs in at. Protein only where there's room for it.
+  const dish = (m: Listed, on: boolean, roomy: boolean) => (
+    <div className={on ? "menu-dish on" : "menu-dish"} title={`${round(m.totals.protein)} g protein · ${round(m.totals.carbs)} g carbs · ${round(m.totals.fat)} g fat`}>
+      <Link href={`/meals/${m.id}`}>{m.name}</Link>
+      {on && <span className="sr-only"> (planned)</span>}
+      {m.status === "proposed" && <span className="badge proposed">proposed</span>}
+      <span className="menu-dots" aria-hidden="true" />
+      <span className="menu-kcal">{m.items.length === 0 ? "–" : <>{round(m.totals.calories)}{roomy ? ` · ${round(m.totals.protein)} g protein` : <span className="sr-only"> kcal</span>}</>}</span>
+    </div>
+  );
   const round = (n: number | undefined) => Math.round(n ?? 0);
   // Every link keeps the other choices; defaults stay out of the address.
   const href = (to: { show?: typeof filter; slot?: string; sort?: MealSort }) => {
@@ -54,43 +69,42 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
         </div>
       )}
       {board.slots.length > 0 && (
-        <div className="plates">
-          <p className="plates-key">Read a meal time across: its parts are eaten together. Read a part down: pick one. <span className="plan-mark planned" aria-hidden="true" /> marks what the day plans.</p>
+        <div className="menu">
           {board.slots.map((slot) => {
             const kcal = slotTotals(slot.parts, "calories");
             const swaps = slot.parts.some((p) => p.meals.length > 1);
+            const roomy = slot.parts.length + (slot.sometimes.length > 0 ? 1 : 0) <= 2;
             return (
-              <section key={slot.id} className="plate" aria-labelledby={`plate-${slot.id}`}>
-                <h2 id={`plate-${slot.id}`} className="plate-name">{slot.name}</h2>
-                <ol className="plate-parts">
-                  {slot.parts.map((part) => (
-                    <li key={part.part} className="plate-part">
-                      <h3>
+              <section key={slot.id} className="menu-slot" aria-labelledby={`menu-${slot.id}`}>
+                <div>
+                  <h2 id={`menu-${slot.id}`} className="menu-name">{slot.name}</h2>
+                  {slot.parts.length > 0 && (
+                    <p className="menu-total"><b>{round(kcal.planned)}</b> kcal as planned
+                      {swaps && <span>{round(kcal.low)} to {round(kcal.high)} across the swaps</span>}</p>
+                  )}
+                </div>
+                <ol className="menu-parts">
+                  {slot.parts.map((part, index) => (
+                    <li key={part.part} className="menu-part">
+                      <h3>{index > 0 && <i>with </i>}
                         <RenameLabel id={part.part} name={part.name} action={renamePart.bind(null, slot.id)}
                           unnamed={<span className="unnamed">{part.meals.length > 1 ? `One of ${part.meals.length}` : "Every time"}</span>} />
                       </h3>
-                      <ul>
-                        {part.meals.map((m) => (
-                          <li key={m.id}>
-                            <span className={m === part.planned ? "plan-mark planned" : "plan-mark"} title={m === part.planned ? "What the day plans" : undefined} />
-                            <Link href={`/meals/${m.id}`}>{m.name}</Link>
-                            {m === part.planned && <span className="sr-only"> (planned)</span>}
-                            {m.status === "proposed" && <span className="badge proposed">proposed</span>}
-                            <span className="plate-nums"><b>{round(m.totals.calories)}</b> kcal
-                              <span className="macro protein">{round(m.totals.protein)} P</span>
-                              <span className="macro carbs">{round(m.totals.carbs)} C</span>
-                              <span className="macro fat">{round(m.totals.fat)} F</span></span>
-                          </li>
-                        ))}
-                      </ul>
+                      {part.meals.map((m, n) => (
+                        <div key={m.id}>
+                          {n > 0 && <div className="menu-or">or</div>}
+                          {dish(m, m === part.planned, roomy)}
+                        </div>
+                      ))}
                     </li>
                   ))}
+                  {slot.sometimes.length > 0 && (
+                    <li className="menu-part sometimes">
+                      <h3><i>sometimes with </i>{[...new Set(slot.sometimes.flatMap((e) => e.versions))].map(capitalise).join(", ")} only</h3>
+                      {slot.sometimes.map((e) => <div key={e.meal.id}>{dish(e.meal, false, roomy)}</div>)}
+                    </li>
+                  )}
                 </ol>
-                <p className="plate-sum">
-                  <b>{round(kcal.planned)}</b> kcal as planned
-                  <span>{round(slotTotals(slot.parts, "protein").planned)} g protein</span>
-                  {swaps && <span className="plate-range">{round(kcal.low)} to {round(kcal.high)} across the swaps</span>}
-                </p>
               </section>
             );
           })}
