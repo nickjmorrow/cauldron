@@ -28,7 +28,7 @@ test("a heading click starts a nutrient at the biggest and flips the sorted colu
 test("sorts by name, slot and nutrient; ties go by name; a missing nutrient counts as 0", () => {
   assert.deepEqual(names(sortMeals(meals, { key: "name", dir: "asc" })), ["Apple", "Burrito", "Chili", "Oats"]);
   assert.deepEqual(names(sortMeals(meals, { key: "name", dir: "desc" })), ["Oats", "Chili", "Burrito", "Apple"]);
-  assert.deepEqual(names(sortMeals(meals, { key: "slot", dir: "asc" })), ["Apple", "Oats", "Burrito", "Chili"]);
+  assert.deepEqual(names(sortMeals(meals, { key: "slot", dir: "asc" })), ["Oats", "Burrito", "Chili", "Apple"]);
   assert.deepEqual(names(sortMeals(meals, { key: "calories", dir: "desc" })), ["Burrito", "Chili", "Oats", "Apple"]);
   assert.deepEqual(names(sortMeals(meals, { key: "protein", dir: "asc" })), ["Apple", "Oats", "Burrito", "Chili"]);
   assert.equal(meals[0].name, "Oats");
@@ -36,4 +36,9 @@ test("sorts by name, slot and nutrient; ties go by name; a missing nutrient coun
 
 test("slots are the distinct non-empty ones, A to Z", () => {
   assert.deepEqual(mealSlots(meals), ["Breakfast", "Dinner"]);
+});
+
+test("meal times keep the order of a day, then anything else A to Z", () => {
+  const slots = ["Snack", "Dinner", "Baking", "Lunch", "Breakfast"].map((typical_slot) => ({ typical_slot }));
+  assert.deepEqual(mealSlots(slots), ["Breakfast", "Lunch", "Dinner", "Baking", "Snack"]);
 });

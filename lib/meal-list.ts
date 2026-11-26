@@ -26,14 +26,21 @@ export function sortMeals<T extends ListedMeal>(meals: T[], sort: MealSort): T[]
   const byName = (a: T, b: T) => a.name.localeCompare(b.name);
   const compare = (a: T, b: T) => {
     if (sort.key === "name") return byName(a, b);
-    if (sort.key === "slot") return a.typical_slot.localeCompare(b.typical_slot);
+    if (sort.key === "slot") return compareSlots(a.typical_slot, b.typical_slot);
     return (a.totals[sort.key] ?? 0) - (b.totals[sort.key] ?? 0);
   };
   const sign = sort.dir === "asc" ? 1 : -1;
   return [...meals].sort((a, b) => sign * compare(a, b) || byName(a, b));
 }
 
-// The "Usually" values among these meals, A to Z, for the filter chips.
+// Meal times in the order of a day; any other value (Snack, Baking) comes after them, A to Z; no value comes last.
+const DAY_ORDER = ["breakfast", "lunch", "dinner"];
+export function compareSlots(a: string, b: string): number {
+  const rank = (s: string) => { const i = DAY_ORDER.indexOf(s.toLowerCase()); return s === "" ? DAY_ORDER.length + 1 : i === -1 ? DAY_ORDER.length : i; };
+  return rank(a) - rank(b) || a.localeCompare(b);
+}
+
+// The "Usually" values among these meals, in day order, for the filter chips.
 export function mealSlots(meals: { typical_slot: string }[]): string[] {
-  return [...new Set(meals.map((m) => m.typical_slot).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return [...new Set(meals.map((m) => m.typical_slot).filter(Boolean))].sort(compareSlots);
 }
