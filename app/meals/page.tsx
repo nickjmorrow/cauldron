@@ -4,7 +4,7 @@ import { countByUse, UseFilterToggle } from "../in-use-toggle.tsx";
 import { UseTag } from "../flags.tsx";
 import { parseUseFilter, useOf } from "../../lib/usage.ts";
 import { createMeal } from "../actions.ts";
-import { mealSlots, nextMealSort, parseMealSort, sortMeals, firstDir, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
+import { groupBySwaps, mealSlots, nextMealSort, parseMealSort, sortMeals, firstDir, swapGroups, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
 
 const COLUMNS: { key: MealSortKey; label: string; numeric?: boolean }[] = [
   { key: "name", label: "Meal" }, { key: "slot", label: "Usually" },
@@ -16,7 +16,8 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   const params = await searchParams;
   const filter = parseUseFilter(params.show);
   const sort = parseMealSort(params.sort, params.dir);
-  const day = inUse(getOnlyDay()).meals;
+  const onlyDay = getOnlyDay();
+  const day = inUse(onlyDay).meals;
   const occasional = occasionalUse().meals;
   const use = (m: { id: number }) => useOf(m.id, day, occasional);
   const everything = listMeals();
@@ -24,6 +25,8 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   const slots = mealSlots(inFilter);
   const slot = slots.includes(params.slot ?? "") ? params.slot : undefined;
   const meals = sortMeals(slot ? inFilter.filter((m) => m.typical_slot === slot) : inFilter, sort);
+  // Meals that are swaps for each other in the day (the meats, the sauces) sit together; the sort orders each group.
+  const groups = groupBySwaps(meals, swapGroups(onlyDay.slots));
   // Every link keeps the other choices; defaults stay out of the address.
   const href = (to: { show?: typeof filter; slot?: string; sort?: MealSort }) => {
     const query = new URLSearchParams();
@@ -61,15 +64,18 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
             })}
           </tr></thead>
           <tbody>
-            {meals.map((m) => (
-              <tr key={m.id} className={m.status}>
-                <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
-                  {m.status === "proposed" && <span className="badge proposed">proposed</span>}
-                  {filter === "all" && <UseTag use={use(m)} />}</td>
-                <td className="muted">{m.typical_slot}</td>
-                {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{Math.round(m.totals[k] ?? 0)}</td>)}
-              </tr>
-            ))}
+            {groups.map((group, g) => [
+              g > 0 && <tr key={`gap-${g}`} className="gap" aria-hidden="true"><td colSpan={COLUMNS.length} /></tr>,
+              ...group.map((m) => (
+                <tr key={m.id} className={m.status}>
+                  <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
+                    {m.status === "proposed" && <span className="badge proposed">proposed</span>}
+                    {filter === "all" && <UseTag use={use(m)} />}</td>
+                  <td className="muted">{m.typical_slot}</td>
+                  {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{Math.round(m.totals[k] ?? 0)}</td>)}
+                </tr>
+              )),
+            ])}
           </tbody>
         </table>
       </div>

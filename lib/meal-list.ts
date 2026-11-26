@@ -44,3 +44,23 @@ export function compareSlots(a: string, b: string): number {
 export function mealSlots(meals: { typical_slot: string }[]): string[] {
   return [...new Set(meals.map((m) => m.typical_slot).filter(Boolean))].sort(compareSlots);
 }
+
+// The day's swaps: the meals of each part of a slot that has two or more to pick from, in the day's order.
+export function swapGroups(slots: { parts: { options: { meal: { id: number } }[] }[] }[]): number[][] {
+  return slots.flatMap((s) => s.parts.map((p) => p.options.map((o) => o.meal.id))).filter((ids) => ids.length > 1);
+}
+
+// Listed meals with each swap group kept together (groups in the day's order), then one last group of everything else.
+// Rows keep the order they came in. A swap group with a single meal left to show isn't a group; a meal in two goes with the first.
+export function groupBySwaps<T extends { id: number }>(meals: T[], swaps: number[][]): T[][] {
+  const placed = new Set<number>();
+  const groups: T[][] = [];
+  for (const ids of swaps) {
+    const group = meals.filter((m) => ids.includes(m.id) && !placed.has(m.id));
+    if (group.length < 2) continue;
+    for (const m of group) placed.add(m.id);
+    groups.push(group);
+  }
+  const rest = meals.filter((m) => !placed.has(m.id));
+  return rest.length ? [...groups, rest] : groups;
+}
