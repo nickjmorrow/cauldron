@@ -28,7 +28,7 @@ export function resolveVersion(base: Slot[], adjustments: Adjustment[], lookup: 
 
   return base.map((slot) => {
     const parts = slot.parts
-      .map((p) => ({ part: p.part, options: p.options.filter((o) => !removed.has(o.optionId)).map((o) => scaleOption(o, scaled.get(o.optionId)?.factor, scaled.get(o.optionId)?.id)) }))
+      .map((p) => ({ ...p, options: p.options.filter((o) => !removed.has(o.optionId)).map((o) => scaleOption(o, scaled.get(o.optionId)?.factor, scaled.get(o.optionId)?.id)) }))
       .filter((p) => p.options.length > 0)
       .map((p) => {
         const choice = p.options.find((o) => planned.has(o.optionId));

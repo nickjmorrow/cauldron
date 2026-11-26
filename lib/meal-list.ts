@@ -45,30 +45,39 @@ export function mealSlots(meals: { typical_slot: string }[]): string[] {
   return [...new Set(meals.map((m) => m.typical_slot).filter(Boolean))].sort(compareSlots);
 }
 
-// The listed meals laid out the way the day is built: a section per slot of the day, holding its parts (the things
-// eaten together), each part holding its swaps. Meals in no slot make one last section with no slot name.
-// Rows keep the order they came in; a part or slot with nothing to show is left out; a meal in two parts goes with the first.
-export type MealSection<T> = { slot: string | null; parts: T[][] };
-type DaySlot = { name: string; parts: { options: { meal: { id: number } }[] }[] };
-export function mealsBySlot<T extends { id: number }>(meals: T[], slots: DaySlot[]): MealSection<T>[] {
+// The listed meals laid out the way the day is built: its slots, each slot's parts (the things eaten together), each
+// part's meals (swaps for each other). planned is the meal the day plans for that part, when it is among those shown.
+// Meals keep the order they came in; a part or slot with nothing to show is left out; a meal in two parts goes with
+// the first. rest: the meals in no slot.
+export type BoardPart<T> = { part: number; name: string; meals: T[]; planned: T | undefined };
+export type BoardSlot<T> = { id: number; name: string; parts: BoardPart<T>[] };
+type DaySlot = { id: number; name: string; parts: { part: number; name?: string; options: { meal: { id: number }; isPlanned: boolean }[] }[] };
+export function mealBoard<T extends { id: number }>(meals: T[], slots: DaySlot[]): { slots: BoardSlot<T>[]; rest: T[] } {
   const placed = new Set<number>();
-  const sections: MealSection<T>[] = [];
+  const board: BoardSlot<T>[] = [];
   for (const slot of slots) {
-    const parts: T[][] = [];
+    const parts: BoardPart<T>[] = [];
     for (const part of slot.parts) {
       const ids = new Set(part.options.map((o) => o.meal.id));
       const shown = meals.filter((m) => ids.has(m.id) && !placed.has(m.id));
+      if (shown.length === 0) continue;
       for (const m of shown) placed.add(m.id);
-      if (shown.length > 0) parts.push(shown);
+      const plannedId = part.options.find((o) => o.isPlanned)?.meal.id;
+      parts.push({ part: part.part, name: part.name ?? "", meals: shown, planned: shown.find((m) => m.id === plannedId) });
     }
-    if (parts.length > 0) sections.push({ slot: slot.name, parts });
+    if (parts.length > 0) board.push({ id: slot.id, name: slot.name, parts });
   }
-  const rest = meals.filter((m) => !placed.has(m.id));
-  return rest.length > 0 ? [...sections, { slot: null, parts: [rest] }] : sections;
+  return { slots: board, rest: meals.filter((m) => !placed.has(m.id)) };
 }
 
-// How a slot is put together, for its heading: "one of 3" for a single part with swaps, "4 parts eaten together" for several.
-export function describeParts(parts: unknown[][]): string {
-  if (parts.length > 1) return `${parts.length} parts eaten together`;
-  return parts[0].length > 1 ? `one of ${parts[0].length}` : "";
+// What a slot adds up to for one nutrient: with the planned meal of every part (the first shown, when the planned one
+// isn't), and with the lightest and the heaviest swap of every part.
+export function slotTotals<T extends ListedMeal>(parts: BoardPart<T>[], key: string): { planned: number; low: number; high: number } {
+  const value = (m: T) => m.totals[key] ?? 0;
+  const sum = (pick: (part: BoardPart<T>) => number) => parts.reduce((total, part) => total + pick(part), 0);
+  return {
+    planned: sum((p) => value(p.planned ?? p.meals[0])),
+    low: sum((p) => Math.min(...p.meals.map(value))),
+    high: sum((p) => Math.max(...p.meals.map(value))),
+  };
 }

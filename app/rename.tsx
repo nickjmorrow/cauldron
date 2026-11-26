@@ -48,12 +48,13 @@ export function RenameTitle({ id, name, action }: {
 }
 
 // A name inside a table cell or list row, followed by whatever the server wants beside it (badges, counts).
-export function RenameLabel({ id, name, action, after }: {
-  id: number; name: string; action: (id: number, name: string) => Promise<string | void>; after?: React.ReactNode;
+// unnamed: what to show for something that has no name yet; its link then reads "name it".
+export function RenameLabel({ id, name, action, after, unnamed }: {
+  id: number; name: string; action: (id: number, name: string) => Promise<string | void>; after?: React.ReactNode; unnamed?: React.ReactNode;
 }) {
   return (
     <InlineName id={id} name={name} action={action}>
-      {(rename) => <>{name}{after}<button type="button" className="link rename-link" onClick={rename}>rename</button></>}
+      {(rename) => <>{name || unnamed}{after}<button type="button" className="link rename-link" onClick={rename}>{name ? "rename" : "name it"}</button></>}
     </InlineName>
   );
 }

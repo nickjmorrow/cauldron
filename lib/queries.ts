@@ -50,8 +50,9 @@ export function listMeals(): MealWithTotals[] {
 }
 
 export type SlotOption = { optionId: number; meal: MealWithTotals; isPlanned: boolean; adjust?: OptionAdjust };
-// A part is one thing eaten in the slot; several options in a part are variations of it.
-export type Part = { part: number; options: SlotOption[] };
+// A part is one thing eaten in the slot; several options in a part are variations of it. name: what the part is
+// called ("Sauce"), when it has been given one.
+export type Part = { part: number; name?: string; options: SlotOption[] };
 export type Slot = { id: number; name: string; parts: Part[] };
 // One of a day's versions (one per goal): the base day plus adjustments.
 // `slots` is the day this version actually eats, already resolved; the base is on the Day.
@@ -71,7 +72,8 @@ function loadSlots(dayId: number): Slot[] {
       list.push({ optionId: o.id as number, meal: getMeal(o.meal_id as number)!, isPlanned: !!o.is_planned });
       parts.set(o.part as number, list);
     }
-    return { ...s, parts: [...parts].map(([part, options]) => ({ part, options })) };
+    const names = new Map((db.prepare("SELECT part, name FROM slot_part_names WHERE slot_id = ?").all(s.id) as { part: number; name: string }[]).map((r) => [r.part, r.name]));
+    return { ...s, parts: [...parts].map(([part, options]) => ({ part, name: names.get(part) ?? "", options })) };
   });
 }
 
@@ -107,6 +109,13 @@ export function getDay(id: number): Day | undefined {
 }
 
 // There is one day. A database that has none (a fresh install) gets it here; with several, the first by position is the one.
+// Names a part of a base slot; an empty name takes the name away.
+export function namePart(slotId: number, part: number, name: string): void {
+  const db = getDb();
+  if (!name.trim()) db.prepare("DELETE FROM slot_part_names WHERE slot_id = ? AND part = ?").run(slotId, part);
+  else db.prepare("INSERT INTO slot_part_names (slot_id, part, name) VALUES (?, ?, ?) ON CONFLICT (slot_id, part) DO UPDATE SET name = excluded.name").run(slotId, part, name.trim());
+}
+
 export function getOnlyDay(): Day {
   const db = getDb();
   const row = db.prepare("SELECT id FROM days ORDER BY position, id LIMIT 1").get() as { id: number } | undefined;

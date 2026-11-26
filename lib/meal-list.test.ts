@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { describeParts, mealSlots, mealsBySlot, nextMealSort, parseMealSort, sortMeals } from "./meal-list.ts";
+import { mealBoard, mealSlots, nextMealSort, parseMealSort, slotTotals, sortMeals } from "./meal-list.ts";
 
 const meals = [
   { name: "Oats", typical_slot: "Breakfast", totals: { calories: 400, protein: 20 } },
@@ -43,31 +43,34 @@ test("meal times keep the order of a day, then anything else A to Z", () => {
   assert.deepEqual(mealSlots(slots), ["Breakfast", "Lunch", "Dinner", "Baking", "Snack"]);
 });
 
-const part = (...ids: number[]) => ({ options: ids.map((id) => ({ meal: { id } })) });
+// The first meal of a part is the planned one.
+const part = (number: number, name: string, ...ids: number[]) => ({ part: number, name, options: ids.map((id, i) => ({ meal: { id }, isPlanned: i === 0 })) });
 const DAY = [
-  { name: "Breakfast", parts: [part(1), part(2, 3)] },
-  { name: "Lunch", parts: [part(4, 5)] },
-  { name: "Dinner", parts: [part(8, 6), part(7, 9)] },
+  { id: 1, name: "Breakfast", parts: [part(0, "", 1), part(1, "Main", 2, 3)] },
+  { id: 2, name: "Lunch", parts: [part(0, "", 4, 5)] },
+  { id: 3, name: "Dinner", parts: [part(0, "Meat", 8, 6), part(2, "Sauce", 7, 9)] },
 ];
-const shape = (sections: { slot: string | null; parts: { id: number }[][] }[]) => sections.map((s) => [s.slot, s.parts.map((p) => p.map((m) => m.id))]);
+const shape = (board: { slots: { name: string; parts: { name: string; meals: { id: number }[]; planned?: { id: number } }[] }[]; rest: { id: number }[] }) =>
+  [...board.slots.map((s) => [s.name, ...s.parts.map((p) => `${p.name}:${p.meals.map((m) => m.id)}:${p.planned?.id ?? "-"}`)]), board.rest.map((m) => m.id)];
 
-test("meals are laid out by the day's slots and their parts, rows in the order given, the rest last", () => {
+test("meals are laid out by the day's slots and named parts, in the order given, with the planned one marked and the rest apart", () => {
   const listed = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((id) => ({ id }));
-  assert.deepEqual(shape(mealsBySlot(listed, DAY)), [
-    ["Breakfast", [[1], [2, 3]]], ["Lunch", [[4, 5]]], ["Dinner", [[6, 8], [7, 9]]], [null, [[10, 11]]],
+  assert.deepEqual(shape(mealBoard(listed, DAY)), [
+    ["Breakfast", ":1:1", "Main:2,3:2"], ["Lunch", ":4,5:4"], ["Dinner", "Meat:6,8:8", "Sauce:7,9:7"], [10, 11],
   ]);
-  assert.deepEqual(shape(mealsBySlot(listed.slice(0, 5), DAY)), [["Breakfast", [[1], [2, 3]]], ["Lunch", [[4, 5]]]]);
 });
 
-test("parts and slots with nothing to show are left out; a meal in two parts goes with the first", () => {
+test("parts and slots with nothing to show are left out; a meal in two parts goes with the first; a hidden planned meal isn't marked", () => {
   const listed = [3, 9, 12].map((id) => ({ id }));
-  assert.deepEqual(shape(mealsBySlot(listed, [...DAY, { name: "Snack", parts: [part(9, 3)] }])), [["Breakfast", [[3]]], ["Dinner", [[9]]], [null, [[12]]]]);
-  assert.deepEqual(shape(mealsBySlot(listed, [])), [[null, [[3, 9, 12]]]]);
-  assert.deepEqual(mealsBySlot([], DAY), []);
+  assert.deepEqual(shape(mealBoard(listed, [...DAY, { id: 4, name: "Snack", parts: [part(0, "", 9, 3)] }])), [["Breakfast", "Main:3:-"], ["Dinner", "Sauce:9:-"], [12]]);
+  assert.deepEqual(shape(mealBoard(listed, [])), [[3, 9, 12]]);
+  assert.deepEqual(shape(mealBoard([], DAY)), [[]]);
 });
 
-test("a slot's heading says how it's put together", () => {
-  assert.equal(describeParts([[1, 2, 3]]), "one of 3");
-  assert.equal(describeParts([[1], [2, 3]]), "2 parts eaten together");
-  assert.equal(describeParts([[1]]), "");
+test("a slot adds up to its planned meals, and to the lightest and heaviest swap of each part", () => {
+  const food = (id: number, calories?: number) => ({ id, name: `m${id}`, typical_slot: "", totals: { calories } });
+  const board = mealBoard([food(6, 300), food(8, 350), food(7, 80), food(9)], DAY);
+  assert.deepEqual(slotTotals(board.slots[0].parts, "calories"), { planned: 350 + 80, low: 300 + 0, high: 350 + 80 });
+  const unplanned = mealBoard([food(6, 300), food(7, 80), food(9, 20)], DAY); // the planned meat is hidden: the first shown stands in
+  assert.equal(slotTotals(unplanned.slots[0].parts, "calories").planned, 300 + 80);
 });

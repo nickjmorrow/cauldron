@@ -3,8 +3,9 @@ import { getOnlyDay, inUse, listMeals, occasionalUse } from "../../lib/queries.t
 import { countByUse, UseFilterToggle } from "../in-use-toggle.tsx";
 import { UseTag } from "../flags.tsx";
 import { parseUseFilter, useOf } from "../../lib/usage.ts";
-import { createMeal } from "../actions.ts";
-import { describeParts, mealSlots, mealsBySlot, nextMealSort, parseMealSort, sortMeals, firstDir, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
+import { createMeal, renamePart } from "../actions.ts";
+import { RenameLabel } from "../rename.tsx";
+import { mealBoard, mealSlots, nextMealSort, slotTotals, parseMealSort, sortMeals, firstDir, type MealSort, type MealSortKey } from "../../lib/meal-list.ts";
 
 const COLUMNS: { key: MealSortKey; label: string; numeric?: boolean }[] = [
   { key: "name", label: "Meal" }, { key: "slot", label: "Usually" },
@@ -25,9 +26,9 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
   const slots = mealSlots(inFilter);
   const slot = slots.includes(params.slot ?? "") ? params.slot : undefined;
   const meals = sortMeals(slot ? inFilter.filter((m) => m.typical_slot === slot) : inFilter, sort);
-  // Laid out the way the day is built: its slots, each slot's parts, each part's swaps. The sort orders the swaps.
-  const sections = mealsBySlot(meals, onlyDay.slots);
-  const headed = sections.some((s) => s.slot !== null);
+  // The day's own meals are drawn the way the day is built (below); every other meal is a row in the table.
+  const board = mealBoard(meals, onlyDay.slots);
+  const round = (n: number | undefined) => Math.round(n ?? 0);
   // Every link keeps the other choices; defaults stay out of the address.
   const href = (to: { show?: typeof filter; slot?: string; sort?: MealSort }) => {
     const query = new URLSearchParams();
@@ -52,6 +53,51 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
           {slots.map((s) => <Link key={s} href={href({ slot: s })} className="shop-reason" aria-pressed={slot === s} replace>{s}</Link>)}
         </div>
       )}
+      {board.slots.length > 0 && (
+        <div className="plates">
+          <p className="plates-key">Read a meal time across: its parts are eaten together. Read a part down: pick one. <span className="plan-mark planned" aria-hidden="true" /> marks what the day plans.</p>
+          {board.slots.map((slot) => {
+            const kcal = slotTotals(slot.parts, "calories");
+            const swaps = slot.parts.some((p) => p.meals.length > 1);
+            return (
+              <section key={slot.id} className="plate" aria-labelledby={`plate-${slot.id}`}>
+                <h2 id={`plate-${slot.id}`} className="plate-name">{slot.name}</h2>
+                <ol className="plate-parts">
+                  {slot.parts.map((part) => (
+                    <li key={part.part} className="plate-part">
+                      <h3>
+                        <RenameLabel id={part.part} name={part.name} action={renamePart.bind(null, slot.id)}
+                          unnamed={<span className="unnamed">{part.meals.length > 1 ? `One of ${part.meals.length}` : "Every time"}</span>} />
+                      </h3>
+                      <ul>
+                        {part.meals.map((m) => (
+                          <li key={m.id}>
+                            <span className={m === part.planned ? "plan-mark planned" : "plan-mark"} title={m === part.planned ? "What the day plans" : undefined} />
+                            <Link href={`/meals/${m.id}`}>{m.name}</Link>
+                            {m === part.planned && <span className="sr-only"> (planned)</span>}
+                            {m.status === "proposed" && <span className="badge proposed">proposed</span>}
+                            <span className="plate-nums"><b>{round(m.totals.calories)}</b> kcal
+                              <span className="macro protein">{round(m.totals.protein)} P</span>
+                              <span className="macro carbs">{round(m.totals.carbs)} C</span>
+                              <span className="macro fat">{round(m.totals.fat)} F</span></span>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ol>
+                <p className="plate-sum">
+                  <b>{round(kcal.planned)}</b> kcal as planned
+                  <span>{round(slotTotals(slot.parts, "protein").planned)} g protein</span>
+                  {swaps && <span className="plate-range">{round(kcal.low)} to {round(kcal.high)} across the swaps</span>}
+                </p>
+              </section>
+            );
+          })}
+        </div>
+      )}
+      {board.slots.length > 0 && board.rest.length > 0 && <h2>{filter === "day" ? "Also in the day" : "Other meals"}</h2>}
+      {board.rest.length > 0 && (
       <div className="table-wrap">
         <table>
           <thead><tr>
@@ -65,34 +111,19 @@ export default async function Meals({ searchParams }: { searchParams: Promise<{ 
             })}
           </tr></thead>
           <tbody>
-            {sections.map((section) => [
-              headed && (
-                <tr key={`slot-${section.slot}`} className="group">
-                  <th colSpan={COLUMNS.length}>{section.slot ?? (filter === "day" ? "Also in the day" : "Other meals")}
-                    {section.slot !== null && describeParts(section.parts) && ` · ${describeParts(section.parts)}`}</th>
-                </tr>
-              ),
-              ...section.parts.flatMap((part, p) => [
-                // Several parts are eaten together (+); several meals in a part are swaps for each other.
-                section.parts.length > 1 && (p > 0 || part.length > 1) && (
-                  <tr key={`part-${section.slot}-${p}`} className="part">
-                    <td colSpan={COLUMNS.length}>{[p > 0 && "+", part.length > 1 && `one of ${part.length}`].filter(Boolean).join(" ")}</td>
-                  </tr>
-                ),
-                ...part.map((m) => (
-                  <tr key={m.id} className={m.status}>
-                    <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
-                      {m.status === "proposed" && <span className="badge proposed">proposed</span>}
-                      {filter === "all" && <UseTag use={use(m)} />}</td>
-                    <td className="muted">{m.typical_slot}</td>
-                    {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{m.items.length === 0 ? "–" : Math.round(m.totals[k] ?? 0)}</td>)}
-                  </tr>
-                )),
-              ]),
-            ])}
+            {board.rest.map((m) => (
+              <tr key={m.id} className={m.status}>
+                <td><Link href={`/meals/${m.id}`}>{m.name}</Link>
+                  {m.status === "proposed" && <span className="badge proposed">proposed</span>}
+                  {filter === "all" && <UseTag use={use(m)} />}</td>
+                <td className="muted">{m.typical_slot}</td>
+                {(["calories", "protein", "carbs", "fat"] as const).map((k) => <td key={k} className="num">{m.items.length === 0 ? "–" : round(m.totals[k])}</td>)}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
+      )}
       <form action={createMeal} className="add">
         <input name="name" aria-label="Meal name" placeholder="New meal name" required />
         <input name="slot" aria-label="Usual slot" placeholder="Usual slot (Dinner)" />

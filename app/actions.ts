@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "../lib/db.ts";
 import { GOALS, parseProfile, planTargets, type Goal } from "../lib/calculators.ts";
-import { createVersion, getOnlyDay, rejectVersion, saveGoalTargets } from "../lib/queries.ts";
+import { createVersion, getOnlyDay, namePart, rejectVersion, saveGoalTargets } from "../lib/queries.ts";
 import { parseVersionKey } from "../lib/versions.ts";
 import { NUTRIENTS } from "../lib/nutrients.ts";
 import { CATEGORIES } from "../lib/categories.ts";
@@ -224,6 +224,13 @@ export async function removeOption(id: number) {
   if (opt.is_planned) {
     db.prepare("UPDATE slot_options SET is_planned = 1 WHERE id = (SELECT MIN(id) FROM slot_options WHERE slot_id = ? AND part = ?)").run(opt.slot_id, opt.part);
   }
+  // A part with nothing left is gone, and so is its name: the next part added may get the same number.
+  if (!db.prepare("SELECT 1 FROM slot_options WHERE slot_id = ? AND part = ?").get(opt.slot_id, opt.part)) namePart(opt.slot_id, opt.part, "");
+  refresh();
+}
+// What a part of a slot is called ("Sauce"), shown where the day's meals are listed.
+export async function renamePart(slotId: number, part: number, name: string): Promise<string | void> {
+  namePart(slotId, part, name);
   refresh();
 }
 // Returns a message when the name can't be used, nothing when it worked.

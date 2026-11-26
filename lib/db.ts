@@ -155,6 +155,13 @@ CREATE TABLE IF NOT EXISTS shopping_items (
   lookup INTEGER NOT NULL DEFAULT 0,   -- 1 while the store's aisle is being looked up
   meals TEXT NOT NULL DEFAULT '[]'     -- JSON list of the meals or other reasons it's bought for
 );
+-- What a part of a slot is called ("Sauce"): the parts of a slot are eaten together, the meals in a part are swaps.
+CREATE TABLE IF NOT EXISTS slot_part_names (
+  slot_id INTEGER NOT NULL REFERENCES day_slots(id) ON DELETE CASCADE,
+  part INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  PRIMARY KEY (slot_id, part)
+);
 -- How a meal is cooked (lib/recipes.ts), next to its summary, serves, times and tags on the meal itself.
 -- One line of its ingredient list as written; buy is what to shop for ('' = nothing), group_name a sub-list heading.
 CREATE TABLE IF NOT EXISTS meal_lines (

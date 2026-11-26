@@ -121,9 +121,6 @@ th { color: var(--muted); font-weight: 500; font-size: 13px; background: var(--s
 th a.sort { color: inherit; text-decoration: none; white-space: nowrap; }
 th a.sort:hover, th[aria-sort] a.sort { color: var(--fg); }
 tr.group th { background: var(--raised); color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; position: static; }
-/* Under a group heading: the label of one part of the group ("+ one of 3"). */
-tr.part td { padding: 10px 12px 2px; border-bottom: 0; color: var(--muted); font-size: 12px; }
-tr.part:hover { background: none; }
 tr.proposed { background: var(--proposed); }
 
 /* Status */
@@ -517,6 +514,52 @@ button.shop-meals:hover { border-color: var(--sun); }
 .shop-photo-pick { cursor: pointer; border: 1px solid var(--line); border-radius: 8px; padding: 6px 11px; min-height: 34px; display: inline-flex; align-items: center; background: var(--surface); }
 .shop-photo-pick:hover { background: var(--raised); border-color: var(--muted); }
 .shop-photo-pick:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Meals: the day's meals drawn the way the day is built. A plate is one meal time, read across like a sum: its
+   parts are eaten together (+) and add up to the total (=). Each part reads down: its meals are swaps (or). */
+.plates { display: grid; gap: 14px; margin-bottom: 8px; }
+.plates-key { margin: 0 0 2px; color: var(--muted); font-size: 13px; }
+.plate { display: grid; grid-template-columns: 132px minmax(0, 1fr) 168px; align-items: start;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.plate > * { padding: 18px 20px; }
+.plate-name { margin: 0; font: 400 30px/1.1 var(--font-display); letter-spacing: -0.01em; text-transform: none; color: var(--fg); }
+.plate-parts { list-style: none; margin: 0; padding-left: 0; padding-right: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+.plate-part { position: relative; padding: 0 10px 0 26px; min-width: 0; max-width: 440px; }
+.plate-part:first-child { padding-left: 0; }
+.plate-part + .plate-part::before, .plate-sum::before { position: absolute; font: 400 30px/1 var(--font-display); color: var(--sun); }
+.plate-part + .plate-part::before { content: "+"; left: -4px; top: 22px; }
+.plate-part h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); min-height: 20px; }
+.plate-part h3 .unnamed { font-weight: 400; }
+.plate-part h3 .rename-link { opacity: 0; transition: opacity 120ms; text-transform: none; letter-spacing: 0; }
+.plate-part:hover h3 .rename-link, .plate-part h3 .rename-link:focus-visible { opacity: 1; }
+@media (hover: none) { .plate-part h3 .rename-link { opacity: 1; } }
+.plate-part h3 .inline-name input { font: inherit; text-transform: none; letter-spacing: 0; width: 100%; padding: 2px 6px; }
+.plate-part ul { list-style: none; margin: 0; padding: 0; }
+.plate-part li { position: relative; padding: 9px 0 9px 17px; line-height: 1.3; }
+.plate-part li + li { border-top: 1px solid var(--line); }
+.plate-part li + li::before { content: "or"; position: absolute; top: -9px; right: 0; padding-left: 8px; background: var(--surface);
+  font: italic 400 15px/1 var(--font-display); color: var(--muted); }
+.plan-mark { display: inline-block; width: 7px; height: 7px; border: 1px solid var(--muted); vertical-align: 1px; }
+.plan-mark.planned { background: var(--sun); border-color: var(--sun); }
+.plate-part li .plan-mark { position: absolute; left: 0; top: 15px; }
+.plate-nums { display: flex; flex-wrap: wrap; gap: 0 7px; white-space: nowrap; margin-top: 2px; font-size: 13px; color: var(--muted); }
+.plate-nums b { color: var(--fg); font-weight: 600; }
+.plate-nums .macro.protein { color: var(--protein); } .plate-nums .macro.carbs { color: var(--carbs); } .plate-nums .macro.fat { color: var(--fat); }
+.plate-sum { position: relative; margin: 0; padding-left: 34px; align-self: stretch; border-left: 1px solid var(--line); display: grid; align-content: start; gap: 2px; font-size: 13px; color: var(--muted); }
+.plate-sum::before { content: "="; left: 10px; top: 22px; }
+.plate-sum b { display: block; font: 400 38px/1 var(--font-display); color: var(--fg); margin-bottom: 2px; }
+.plate-range { margin-top: 6px; }
+@media (max-width: 900px) {
+  .plate { grid-template-columns: minmax(0, 1fr); }
+  .plate > * { padding: 14px 16px; }
+  .plate-name { padding-bottom: 0; }
+  .plate-parts { grid-auto-flow: row; gap: 14px; }
+  .plate-part, .plate-part:first-child { padding: 0 0 0 26px; }
+  .plate-part + .plate-part::before { left: 0; top: -4px; }
+  .plate-sum { border-left: 0; border-top: 1px solid var(--line); }
+  .plate-sum::before { left: 16px; top: 18px; }
+  .plate-sum { padding-left: 42px; }
+}
 
 /* Recipes */
 .recipe-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
